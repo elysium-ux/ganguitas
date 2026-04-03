@@ -6,6 +6,14 @@ const app = {
     // Inject components into DOM
     await this.injectViews();
     
+    // Verificar si existe configuración (en archivo CONFIG o en localStorage)
+    const hasConfig = API.URL && API.KEY;
+    
+    if (!hasConfig) {
+      this.switchView('setup');
+      return;
+    }
+
     // Check if session exists
     const savedRole = localStorage.getItem('elysium_role');
     const savedUser = localStorage.getItem('elysium_user');
@@ -19,7 +27,7 @@ const app = {
   async injectViews() {
     // Lee dinámicamente o puedes quemarlas. Ya que estamos locales, usaremos fetch nativo para inyectar si usas Live Server
     // Si da cors file://, el usuario debe abrir index en un servidor
-    const views = ['login', 'pos', 'inventory', 'add-item', 'financials'];
+    const views = ['login', 'pos', 'inventory', 'add-item', 'financials', 'setup'];
     for (let view of views) {
       const section = document.getElementById(`view-${view}`);
       if(section && section.dataset.file) {
@@ -181,6 +189,22 @@ const app = {
         
         return `${day}/${month}/${year} ${hours}:${minutes} ${ampm}`;
     } catch(e) { return dateStr; }
+  },
+
+  saveConfig() {
+    const url = document.getElementById('setup-url').value;
+    const key = document.getElementById('setup-key').value;
+
+    if (!url || !key) {
+      this.showAlert("Por favor completa ambos campos", "error");
+      return;
+    }
+
+    localStorage.setItem('elysium_api_url', url);
+    localStorage.setItem('elysium_api_key', key);
+    
+    this.showAlert("¡Configuración guardada! Reiniciando...", "success");
+    setTimeout(() => location.reload(), 1500);
   }
 };
 

@@ -1,0 +1,25 @@
+<div style="height: 100%; display: flex; align-items: center; justify-content: center; padding: 1rem;">
+  <div class="glass-panel" style="width: 100%; max-width: 500px; padding: 2rem; display: flex; flex-direction: column;">
+    
+    <div style="text-align: center; margin-bottom: 2rem;">
+        <h1 style="color: var(--primary);">Configuración Inicial</h1>
+        <p style="color: var(--text-muted); font-size: 0.9rem;">Para que el sistema funcione en GitHub, ingresa tus credenciales de Google Apps Script.</p>
+    </div>
+    
+    <div style="width: 100%;">
+      <label style="font-weight: bold; display: block; margin-bottom: 0.5rem;">URL de tu Apps Script (Voz del sistema)</label>
+      <input type="text" id="setup-url" placeholder="https://script.google.com/macros/s/.../exec">
+    </div>
+
+    <div style="width: 100%;">
+      <label style="font-weight: bold; display: block; margin-bottom: 0.5rem;">Clave API Secreta</label>
+      <input type="password" id="setup-key" placeholder="Escribe tu clave secreta de seguridad...">
+    </div>
+
+    <div style="background: rgba(189, 224, 254, 0.3); padding: 1rem; border-radius: 12px; margin: 1rem 0; font-size: 0.85rem;">
+        <i class="fas fa-info-circle"></i> <strong>Nota de Seguridad</strong>: Estos datos se guardarán solo en **este navegador**. No se enviarán a GitHub ni a nadie más.
+    </div>
+
+    <button class="btn success" style="margin-top: 1rem;" onclick="app.saveConfig()">Conectar y Guardar</button>
+  </div>
+</div>

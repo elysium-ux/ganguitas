@@ -1,13 +1,20 @@
 const API = {
-  // Asegúrate de que esta URL proviene de tu Apps Script implementado
-  URL: CONFIG.API_URL,
-  KEY: CONFIG.API_KEY,
+  // Intentar obtener de CONFIG (archivo local) o de localStorage (para GitHub)
+  get URL() {
+    return (typeof CONFIG !== 'undefined' ? CONFIG.API_URL : null) || localStorage.getItem('elysium_api_url') || "";
+  },
+  get KEY() {
+    return (typeof CONFIG !== 'undefined' ? CONFIG.API_KEY : null) || localStorage.getItem('elysium_api_key') || "";
+  },
 
   async send(action, payload = {}) {
+    if (!this.URL || !this.KEY) {
+      return { success: false, message: "⚠️ Error: Configuración de API no encontrada. Ve a Ajustes." };
+    }
+
     try {
       const response = await fetch(this.URL, {
         method: 'POST',
-        // 'text/plain' evita el preflight CORS complejo que interfiere con Apps Script
         headers: { 'Content-Type': 'text/plain;charset=utf-8' },
         body: JSON.stringify({
           action: action,
