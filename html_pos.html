@@ -1,0 +1,168 @@
+<div class="grid-layout pos-layout">
+  
+  <!-- Left Side: Cart Summary (Moved to Left) -->
+  <div class="glass-panel" style="padding: 1.5rem; display: flex; flex-direction: column;">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+        <h2 style="margin: 0;">Carrito</h2>
+        
+        <!-- Botón Venta Relocalizado Aquí -->
+        <button class="btn" style="background: #ef5da8; color: white; width: 160px; height: 45px; border-radius: 25px; font-size: 1.1rem; font-weight: 600; display: flex; align-items: center; justify-content: center; gap: 10px; box-shadow: 0 8px 20px rgba(239, 93, 168, 0.3); border: none; cursor: pointer; transition: transform 0.2s;" onclick="scannerModule.toggleScanner('pos-search-input')" onmousedown="this.style.transform='scale(0.95)'" onmouseup="this.style.transform='scale(1)'">
+          <i class="fas fa-qrcode"></i>
+          <span>Venta</span>
+        </button>
+    </div>
+
+    <div style="flex: 1; overflow-y: auto; margin-bottom: 1rem; min-height: 200px;">
+      <table style="width: 100%;">
+        <thead><tr><th>Item</th><th>Cant.</th><th>Sub.</th><th></th></tr></thead>
+        <tbody id="cart-tbody"></tbody>
+      </table>
+    </div>
+    <div style="border-top: 1px solid var(--glass-border); padding-top: 1rem;">
+      <div style="display: flex; justify-content: space-between; font-size: 1.5rem; font-weight: bold; margin-bottom: 1rem;">
+        <span>Total:</span> <span id="cart-total">$0.00</span>
+      </div>
+      <label style="color: var(--text-muted); font-size: 0.8rem;">Método de pago:</label>
+      <select id="pos-method" onchange="posModule.updateCart()">
+        <option value="Efectivo">Efectivo</option>
+        <option value="Tarjeta">Tarjeta</option>
+        <option value="Transferencia">Transferencia</option>
+      </select>
+      <div id="cash-change-area" class="hidden" style="margin-top: 1rem; padding: 1rem; background: rgba(255,182,193,0.1); border-radius: 12px; border: 1px dashed var(--primary);">
+        <label style="font-size: 0.8rem;">Efectivo Recibido ($)</label>
+        <input type="number" id="pos-cash-received" oninput="posModule.calculateChange()">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 5px;">
+            <span style="font-size: 0.8rem;">Cambio:</span>
+            <strong id="pos-change-display" style="font-size: 1.2rem; color: var(--primary);">$0.00</strong>
+        </div>
+      </div>
+      <button class="btn success" style="margin-top: 1rem;" onclick="posModule.processSale()">Cobrar y Finalizar</button>
+      <button class="btn danger" style="margin-top: 0.5rem; padding: 5px; font-size: 0.8rem;" onclick="posModule.clearCart()">Limpiar Carrito</button>
+    </div>
+  </div>
+
+  <!-- Right Side: Catalog & Search (Moved to Right) -->
+  <div class="glass-panel" style="padding: 1.5rem; display: flex; flex-direction: column;">
+    
+    <div style="display: flex; flex-direction: column; gap: 1rem; margin-bottom: 1.5rem;">
+        <div style="display: flex; width: 100%; justify-content: space-between; align-items: center;">
+            <h2 id="pos-left-title" style="color: #d67eb1; margin: 0;">Últimos Movimientos</h2>
+            
+            <div style="display: flex; gap: 8px;">
+                <button class="btn" style="background: #a7c957; color: white; width: auto; padding: 0.4rem 0.8rem; font-size: 0.75rem;" onclick="posModule.showOpenRegisterModal()">
+                    <i class="fas fa-door-open"></i> Apertura
+                </button>
+                <button class="btn" style="background: #4a90e2; color: white; width: auto; padding: 0.4rem 0.8rem; font-size: 0.75rem;" onclick="posModule.showCloseRegisterModal()">
+                    <i class="fas fa-cash-register"></i> Corte
+                </button>
+                <button class="btn" style="background: #f28482; color: white; width: auto; padding: 0.4rem 0.8rem; font-size: 0.75rem;" onclick="posModule.showExpenseModal()">
+                    <i class="fas fa-minus-circle"></i> Gasto
+                </button>
+            </div>
+        </div>
+
+        <!-- Search input -->
+        <div class="search-container" style="position: relative;">
+            <i class="fas fa-search" style="position: absolute; left: 15px; top: 15px; color: var(--text-muted);"></i>
+            <input type="text" id="pos-search-input" style="padding-left: 45px;" placeholder="Escribe nombre o escanea código..." onkeyup="posModule.filterCatalog()">
+        </div>
+    </div>
+
+    <!-- Default View: Movements -->
+    <div id="pos-movements-view" style="flex: 1; overflow-y: auto;">
+        <div class="table-container">
+            <table style="font-size: 0.8rem;">
+                <thead>
+                    <tr><th>Fecha</th><th>Acción</th><th>Monto</th><th>Nota</th></tr>
+                </thead>
+                <tbody id="pos-movements-tbody"></tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- Search View: Product List -->
+    <div id="pos-search-results" class="hidden" style="flex: 1; overflow-y: auto;">
+        <div class="catalog-grid" id="pos-product-list"></div>
+    </div>
+  </div>
+</div>
+
+<!-- Modales -->
+<div id="register-open-modal" class="modal-overlay hidden">
+  <div class="modal-content" style="max-width: 400px;">
+    <h2 style="color: #a7c957;">Apertura de Caja 🟢</h2>
+    <p>Ingresa el monto inicial (Fondo fijo):</p>
+    <input type="number" id="reg-open-amount" placeholder="0.00" style="margin: 1rem 0;">
+    <div style="display: flex; gap: 10px;">
+        <button class="btn success" onclick="posModule.confirmOpenRegister()">Iniciar Jornada</button>
+        <button class="btn danger" onclick="document.getElementById('register-open-modal').classList.add('hidden')">Cancelar</button>
+    </div>
+  </div>
+</div>
+
+<div id="register-close-modal" class="modal-overlay hidden">
+  <div class="modal-content" style="max-width: 500px; padding: 2rem;">
+    <div style="text-align: center; margin-bottom: 1.5rem;">
+        <h2 style="color: #4a90e2; font-size: 1.8rem; margin: 0;">Corte de Caja 📊</h2>
+        <p id="close-report-date" style="font-size: 0.8rem; color: var(--text-muted); margin-top: 5px;"></p>
+    </div>
+    <!-- ... Resto del modal de corte se mantiene igual ... -->
+    <div style="background: #f8f9fa; border-radius: 15px; padding: 1.5rem; margin-bottom: 1.5rem; font-size: 0.95rem;">
+        <div style="display: flex; justify-content: space-between; margin-bottom: 0.8rem;">
+            <span>(+) Fondo Inicial:</span>
+            <strong id="close-init-amount">$0.00</strong>
+        </div>
+        <div style="display: flex; justify-content: space-between; margin-bottom: 0.8rem;">
+            <span>(+) Ventas Efectivo:</span>
+            <strong id="close-sales-cash">$0.00</strong>
+        </div>
+        <div style="display: flex; justify-content: space-between; margin-bottom: 0.8rem; color: #f28482;">
+            <span>(-) Gastos:</span>
+            <strong id="close-expenses">-$0.00</strong>
+        </div>
+        <hr style="border: 0; border-top: 1px solid #ddd; margin: 0.8rem 0;">
+        <div style="display: flex; justify-content: space-between; font-size: 1.2rem; color: #2d6a4f;">
+            <span>💵 Ef. Esperado:</span>
+            <strong id="close-expected-cash">$0.00</strong>
+        </div>
+    </div>
+    <label style="font-weight: bold; display: block; margin-bottom: 0.5rem;">Efectivo Real en Caja (Contado) *</label>
+    <input type="number" id="reg-close-amount" placeholder="0.00" style="padding: 1rem; font-size: 1.2rem; text-align: center; border: 2px solid #edafb8;">
+    <div style="margin-top: 1.5rem; padding: 0 0.5rem; border-top: 1px solid #eee; padding-top: 1rem;">
+        <div style="display: flex; justify-content: space-between; margin-bottom: 0.5rem; font-size: 0.9rem;">
+            <span>📱 Transferencias:</span>
+            <strong id="close-sales-trans">$0.00</strong>
+        </div>
+        <div style="display: flex; justify-content: space-between; margin-bottom: 0.8rem; font-size: 0.9rem;">
+            <span>💳 Tarjeta:</span>
+            <strong id="close-sales-card">$0.00</strong>
+        </div>
+    </div>
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 1rem; background: #fff1f2; padding: 1rem; border-radius: 12px; border: 1px solid #ffccd5;">
+        <div style="display: flex; align-items: center; gap: 10px;">
+            <i class="fas fa-shopping-bag" style="color: #d67eb1;"></i>
+            <span style="font-weight: bold;">TOTAL VENTAS:</span>
+            <span id="close-items-count" style="font-size: 0.75rem; color: var(--text-muted);">(0 art.)</span>
+        </div>
+        <strong id="close-total-sales" style="font-size: 1.3rem;">$0.00</strong>
+    </div>
+    <div style="display: flex; gap: 1rem; margin-top: 2rem;">
+        <button class="btn" style="flex: 1; background: #ddd; color: #666;" onclick="document.getElementById('register-close-modal').classList.add('hidden')">Cancelar</button>
+        <button class="btn success" style="flex: 2; background: #4ecdc4;" onclick="posModule.confirmCloseRegister()">Finalizar Corte</button>
+    </div>
+  </div>
+</div>
+
+<div id="pos-expense-modal" class="modal-overlay hidden">
+  <div class="modal-content" style="max-width: 400px;">
+    <h2 style="color: #f28482;">Registrar Gasto 🔴</h2>
+    <label>Concepto</label>
+    <input type="text" id="pos-exp-concept" placeholder="Ej. Pago Luz, Renta...">
+    <label>Monto ($)</label>
+    <input type="number" id="pos-exp-amount" placeholder="0.00">
+    <div style="display: flex; gap: 10px; margin-top: 1rem;">
+        <button class="btn" style="background: #f28482; color: white;" onclick="posModule.saveExpense()">Guardar Gasto</button>
+        <button class="btn" style="background: #ccc;" onclick="document.getElementById('pos-expense-modal').classList.add('hidden')">Cancelar</button>
+    </div>
+  </div>
+</div>

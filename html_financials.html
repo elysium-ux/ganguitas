@@ -1,0 +1,111 @@
+<div class="glass-panel" style="margin-bottom: 2rem;">
+  <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1rem;">
+    <div>
+        <h1 style="color: #d67eb1;">Dashboard Financiero</h1>
+        <p style="color: var(--text-muted); font-size: 0.9rem;">Analiza tus ventas, gastos y utilidades.</p>
+    </div>
+    <div style="display: flex; gap: 10px; align-items: center;">
+        <button class="btn accent" style="width: auto; padding: 0 1rem;" onclick="financialsModule.showExpenseModal()">
+            <i class="fas fa-minus-circle"></i> Registrar Gasto
+        </button>
+        <select id="fin-filter-period" style="width: auto; margin: 0;" onchange="financialsModule.handleFilterChange()">
+            <option value="today">Hoy</option>
+            <option value="yesterday">Ayer</option>
+            <option value="week">Esta Semana</option>
+            <option value="month">Este Mes</option>
+            <option value="custom">Personalizado...</option>
+        </select>
+    </div>
+  </div>
+
+  <div id="fin-custom-dates" class="hidden" style="display: flex; gap: 10px; margin-top: 1rem; align-items: center; background: rgba(255,182,193,0.05); padding: 1rem; border-radius: 12px; flex-wrap: wrap;">
+      <div style="display:flex; align-items:center; gap:5px;">
+        <label style="margin:0; white-space:nowrap;">Desde:</label> <input type="date" id="fin-date-start" style="margin: 0; width: auto;">
+      </div>
+      <div style="display:flex; align-items:center; gap:5px;">
+        <label style="margin:0; white-space:nowrap;">Hasta:</label> <input type="date" id="fin-date-end" style="margin: 0; width: auto;">
+      </div>
+      <button class="btn success" style="width: auto; padding: 0.8rem 1.5rem; flex: 1;" onclick="financialsModule.loadSummary()">Aplicar</button>
+  </div>
+</div>
+
+<div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 1rem; margin-bottom: 2rem;">
+    <!-- Ventas -->
+    <div class="glass-panel" style="background: rgba(181, 226, 255, 0.15); border: 1px solid #4a90e2; text-align: center; padding: 1.5rem;">
+        <p style="font-size: 0.8rem; font-weight: 700;">VENTAS TOTALES</p>
+        <h2 id="fin-total-sales" style="color: #4a90e2; font-size: 2rem;">$0.00</h2>
+    </div>
+
+    <!-- Gastos -->
+    <div class="glass-panel" style="background: rgba(255, 173, 173, 0.15); border: 1px solid #f28482; text-align: center; padding: 1.5rem;">
+        <p style="font-size: 0.8rem; font-weight: 700;">GASTOS</p>
+        <h2 id="fin-total-expenses" style="color: #f28482; font-size: 2rem;">$0.00</h2>
+    </div>
+
+    <!-- Utilidad -->
+    <div class="glass-panel" style="background: rgba(202, 255, 191, 0.15); border: 1px solid #74c69d; text-align: center; padding: 1.5rem;">
+        <p style="font-size: 0.8rem; font-weight: 700;">UTILIDAD NETA</p>
+        <h2 id="fin-net-profit" style="color: #2d6a4f; font-size: 2rem;">$0.00</h2>
+        <span id="fin-profit-status" style="font-size: 0.75rem; font-weight: bold;"></span>
+    </div>
+</div>
+
+<div class="grid-layout">
+    <!-- Valoración de Inventario (Estático) -->
+    <div class="glass-panel" style="padding: 1.5rem;">
+        <h3 style="margin-bottom: 1rem;">Valoración de Stock Activo</h3>
+        <ul style="list-style: none; font-size: 0.9rem;">
+            <li style="display: flex; justify-content: space-between; padding: 0.8rem 0; border-bottom: 1px dashed #eee;">
+                <span>Costo de Compra:</span>
+                <strong id="fin-inv-purchase">$0.00</strong>
+            </li>
+            <li style="display: flex; justify-content: space-between; padding: 0.8rem 0; border-bottom: 1px dashed #eee;">
+                <span>Valor de Venta:</span>
+                <strong id="fin-inv-sale">$0.00</strong>
+            </li>
+            <li style="display: flex; justify-content: space-between; padding: 0.8rem 0;">
+                <span>Artículos Totales:</span>
+                <strong id="fin-total-items">0</strong>
+            </li>
+        </ul>
+        
+        <h3 style="margin-top: 2rem; margin-bottom: 1rem;">Ventas por Método</h3>
+        <ul style="list-style: none; font-size: 0.9rem;">
+            <li style="display: flex; justify-content: space-between; padding: 0.5rem 0;">
+                <span>💴 Efectivo:</span> <strong id="fin-sale-cash">$0.00</strong>
+            </li>
+            <li style="display: flex; justify-content: space-between; padding: 0.5rem 0;">
+                <span>💳 Tarjeta:</span> <strong id="fin-sale-card">$0.00</strong>
+            </li>
+            <li style="display: flex; justify-content: space-between; padding: 0.5rem 0;">
+                <span>📱 Transf:</span> <strong id="fin-sale-trans">$0.00</strong>
+            </li>
+        </ul>
+    </div>
+
+    <!-- Historial de Caja -->
+    <div class="glass-panel" style="padding: 1.5rem;">
+        <h3 style="margin-bottom: 1rem;">Movimientos de Caja</h3>
+        <div class="table-container">
+            <table style="font-size: 0.8rem;">
+                <thead><tr><th>Fecha</th><th>Tipo</th><th>Monto</th><th>Dif.</th></tr></thead>
+                <tbody id="fin-caja-tbody"></tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<!-- Modal Gasto -->
+<div id="expense-modal" class="modal-overlay hidden">
+  <div class="modal-content" style="max-width: 400px;">
+    <h2 style="color: #f28482;">Registrar Nuevo Gasto</h2>
+    <label>Concepto</label>
+    <input type="text" id="exp-concept" placeholder="Ej. Pago Luz, Renta...">
+    <label>Monto ($)</label>
+    <input type="number" id="exp-amount" placeholder="0.00">
+    <div style="display: flex; gap: 10px; margin-top: 1rem;">
+        <button class="btn success" onclick="financialsModule.saveExpense()">Guardar</button>
+        <button class="btn danger" onclick="document.getElementById('expense-modal').classList.add('hidden')">Cancelar</button>
+    </div>
+  </div>
+</div>

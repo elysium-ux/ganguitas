@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Elysium POS & Inventario (Web App Frontend)</title>
+
+  <!-- Google Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;700&display=swap" rel="stylesheet">
+
+  <!-- HTML5 QR Code Library -->
+  <script src="https://unpkg.com/html5-qrcode" type="text/javascript"></script>
+
+  <!-- JsBarcode for barcode generation -->
+  <script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.5/dist/JsBarcode.all.min.js"></script>
+
+  <!-- CSS Link -->
+  <link rel="stylesheet" href="style.css">
+
+  <!-- PWA & Mobile Icons -->
+  <link rel="manifest" href="manifest.json">
+  <meta name="theme-color" content="#ffb6c1">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <meta name="apple-mobile-web-app-title" content="Ganguitas">
+  <link rel="apple-touch-icon" href="Logo-ganguitas.jpg">
+  <link rel="icon" type="image/jpg" href="Logo-ganguitas.jpg">
+
+  <!-- Iconos de FontAwesome -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+
+<body>
+
+  <div class="blob blob-1"></div>
+  <div class="blob blob-2"></div>
+  <div class="blob blob-3"></div>
+
+  <!-- Global Loader -->
+  <div id="loader" class="global-loader hidden">
+    <div class="spinner"></div>
+    <p>Procesando...</p>
+  </div>
+
+  <main id="app" class="app-container">
+
+    <!-- Top Navigation -->
+    <nav id="top-nav" class="glass-panel hidden">
+      <div class="nav-brand">
+        Elysium <span class="highlight">POS</span>
+      </div>
+      <div class="nav-links">
+        <button id="nav-pos" class="nav-btn" onclick="app.switchView('pos')">Punto de Venta</button>
+        <button id="nav-inv" class="nav-btn" onclick="app.switchView('inventory')">Inventario</button>
+        <button id="nav-add" class="nav-btn" onclick="app.switchView('add-item')">Alta de artículo</button>
+        <button id="nav-fin" class="nav-btn" onclick="app.switchView('financials')">Finanzas</button>
+      </div>
+      <div class="nav-user">
+        <span id="user-display"></span>
+        <button class="nav-btn logout-btn" onclick="app.logout()">Salir</button>
+      </div>
+    </nav>
+
+    <!-- Views Container -->
+    <div class="views-wrapper">
+      <section id="view-login" class="view" data-file="html_login.html"></section>
+      <section id="view-pos" class="view hidden" data-file="html_pos.html"></section>
+      <section id="view-inventory" class="view hidden" data-file="html_inventory.html"></section>
+      <section id="view-add-item" class="view hidden" data-file="html_add_item.html"></section>
+      <section id="view-financials" class="view hidden" data-file="html_financials.html"></section>
+    </div>
+
+    <!-- Contenedor general del scanner modal -->
+    <div id="scanner-modal" class="modal-overlay hidden" style="z-index: 1001;">
+      <div class="modal-content" style="padding: 1rem; position: relative;">
+        <!-- Botón cerrar -->
+        <button class="btn danger"
+          style="position: absolute; top: -15px; right: -15px; width: 40px; height: 40px; border-radius: 50%; padding: 0; box-shadow: 0 4px 10px rgba(0,0,0,0.3);"
+          onclick="scannerModule.stopScanner()">
+          <i class="fas fa-times"></i>
+        </button>
+        <h3 style="margin-bottom: 1rem; color: #d67eb1;">Escanea el Código</h3>
+        <div id="reader"
+          style="width: 100%; min-height: 250px; background: #000; border-radius: 15px; overflow: hidden;"></div>
+      </div>
+    </div>
+
+    <!-- Custom Alert Modal -->
+    <div id="alert-modal" class="modal-overlay hidden" style="z-index: 10000;">
+      <div id="alert-content-box" class="modal-content" style="max-width: 400px; padding: 2rem;">
+        <div id="alert-icon" style="font-size: 3rem; margin-bottom: 1rem;"></div>
+        <h3 id="alert-title" style="margin-bottom: 0.5rem;"></h3>
+        <p id="alert-message" style="margin-bottom: 1.5rem; color: var(--text-muted);"></p>
+        <button class="btn" onclick="app.closeAlert()">Entendido</button>
+      </div>
+    </div>
+
+    <!-- Modal Confirmación Salida -->
+    <div id="logout-modal" class="modal-overlay hidden" style="z-index: 10000;">
+      <div class="modal-content" style="max-width: 400px; padding: 2rem;">
+        <div style="font-size: 3rem; margin-bottom: 1rem;">👋</div>
+        <h3 style="margin-bottom: 0.5rem;">¿Cerrar sesión?</h3>
+        <p style="margin-bottom: 1.5rem; color: var(--text-muted);">¿Estás seguro de que deseas salir del sistema?</p>
+        <div style="display: flex; gap: 10px;">
+            <button class="btn success" onclick="app.confirmLogout()">Sí, Salir</button>
+            <button class="btn danger" onclick="document.getElementById('logout-modal').classList.add('hidden')">Cancelar</button>
+        </div>
+      </div>
+    </div>
+
+  </main>
+
+  <!-- Lógica y Scripts Separados -->
+  <!-- Configuración Privada -->
+  <script src="js_config.js"></script>
+  <script src="js_api.js"></script>
+  <script src="js_data.js"></script>
+  <script src="js_main.js"></script>
+  <script src="js_login.js"></script>
+  <script src="js_inventory.js"></script>
+  <script src="js_add_item.js"></script>
+  <script src="js_financials.js"></script>
+  <script src="js_pos.js"></script>
+  <script src="js_scanner.js"></script>
+
+</body>
+
+</html>

@@ -1,0 +1,90 @@
+<div class="glass-panel" style="margin-bottom: 2rem;">
+  <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1rem;">
+    <h1 style="color: #d67eb1;">Inventario Maestro</h1>
+    <div style="display: flex; gap: 10px;">
+      <button class="btn success" style="width: auto;" onclick="inventoryModule.startAudit()">
+        <i class="fas fa-clipboard-check"></i> Iniciar Inventario / Auditoría
+      </button>
+    </div>
+  </div>
+
+  <div
+    style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem; margin-top: 1.5rem;">
+    <div>
+      <label>Buscar por Nombre</label>
+      <input type="text" id="filter-name" placeholder="Escriba..." onkeyup="inventoryModule.applyFilters()">
+    </div>
+    <div>
+      <label>Ordenar por</label>
+      <select id="filter-sort" onchange="inventoryModule.applyFilters()">
+        <option value="date-desc">Más recientes primero</option>
+        <option value="date-asc">Más antiguos primero</option>
+        <option value="price-high">Precio: Mayor a Menor</option>
+        <option value="price-low">Precio: Menor a Mayor</option>
+      </select>
+    </div>
+    <div>
+      <label>Stock Crítico</label>
+      <select id="filter-stock" onchange="inventoryModule.applyFilters()">
+        <option value="all">Todos</option>
+        <option value="low">Stock Bajo (< 5)</option>
+        <option value="out">Sin Stock (0)</option>
+      </select>
+    </div>
+  </div>
+</div>
+
+<div class="glass-panel" style="flex: 1; overflow: hidden; display: flex; flex-direction: column;">
+  <div class="table-container">
+    <table>
+      <thead>
+        <tr>
+          <th>Fecha Ingreso</th>
+          <th>Código</th>
+          <th>Producto</th>
+          <th>Stock</th>
+          <th>Precio Venta</th>
+          <th>Estado</th>
+        </tr>
+      </thead>
+      <tbody id="audit-inventory-tbody">
+        <!-- JS Populated -->
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<!-- Modal de Auditoría -->
+<div id="audit-modal" class="modal-overlay hidden">
+  <div class="modal-content" style="max-width: 600px; width: 95%;">
+    <h2 style="color: #d67eb1;">Auditando Inventario Físico</h2>
+    <p style="margin-bottom: 1rem; font-size: 0.9rem; color: var(--text-muted);">Escanea todos los productos que tengas
+      físicamente. El sistema detectará faltantes.</p>
+
+    <div style="display: flex; gap: 10px; margin-bottom: 1rem;">
+      <input type="text" id="audit-scan-input" placeholder="Escanea código aquí..." style="margin-bottom: 0;">
+      <button class="btn" style="width: auto;" onclick="scannerModule.toggleScanner('audit-scan-input')"><i
+          class="fas fa-camera"></i></button>
+    </div>
+
+    <div
+      style="max-height: 200px; overflow-y: auto; background: #fdf4f8; border-radius: 12px; padding: 1rem; margin-bottom: 1rem; border: 1px solid var(--primary);">
+      <p><strong>Artículos Escaneados:</strong> <span id="audit-count">0</span></p>
+      <ul id="audit-scanned-list" style="text-align: left; font-size: 0.85rem; margin-top: 5px;"></ul>
+    </div>
+
+    <div style="display: flex; gap: 10px;">
+      <button class="btn success" onclick="inventoryModule.finishAudit()">Finalizar y Generar Reporte</button>
+      <button class="btn danger" onclick="inventoryModule.closeAudit()">Cancelar</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal de Reporte Final -->
+<div id="report-modal" class="modal-overlay hidden">
+  <div class="modal-content" style="max-width: 600px;">
+    <h2 style="color: var(--danger);">Reporte de Faltantes</h2>
+    <div id="report-content" class="ticket-text" style="max-height: 400px;"></div>
+    <button class="btn" onclick="document.getElementById('report-modal').classList.add('hidden')">Cerrar</button>
+  </div>
+</div>

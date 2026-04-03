@@ -1,0 +1,17 @@
+# Google Apps Script Files (The "Life" of the system)
+*.gs
+
+# Configuración Sensible (Claves y URLs)
+js_config.js
+
+# Archivos de entorno y logs
+*.log
+.DS_Store
+Thumbs.db
+
+# Workspace y carpetas temporales
+.clasp.json
+.gemini/
+brain/
+/tmp/
+node_modules/

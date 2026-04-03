@@ -1,0 +1,20 @@
+<div style="height: 100%; display: flex; align-items: center; justify-content: center;">
+  <div class="glass-panel" style="width: 100%; max-width: 400px; padding: 3rem 2rem; display: flex; flex-direction: column; align-items: center;">
+    
+    <h1 style="margin-bottom: 2rem; font-size: 2rem;">Inicio de <span style="color: var(--primary);">Sesión</span></h1>
+    
+    <div style="width: 100%;">
+      <label style="font-size: 0.9rem; color: var(--text-muted); margin-bottom: 0.5rem; display: block;">Usuario</label>
+      <input type="text" id="login-user" placeholder="Escribe tu usuario..." autocomplete="off" maxlength="10">
+    </div>
+
+    <div style="width: 100%;">
+      <label style="font-size: 0.9rem; color: var(--text-muted); margin-bottom: 0.5rem; display: block;">Contraseña</label>
+      <input type="password" id="login-pass" placeholder="••••••••" maxlength="10">
+    </div>
+
+    <p id="login-error" style="color: var(--danger); font-size: 0.9rem; margin-bottom: 1rem; display: none;"></p>
+
+    <button class="btn" style="margin-top: 1rem;" onclick="loginModule.submit()">Ingresar</button>
+  </div>
+</div>

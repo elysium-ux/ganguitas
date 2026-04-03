@@ -1,0 +1,77 @@
+<div class="grid-layout">
+
+  <!-- Form to add products -->
+  <div class="glass-panel" style="padding: 1.5rem;">
+    <div style="display: flex; gap: 10px; margin-bottom: 2rem;">
+      <button id="btn-mode-create" class="btn active" style="flex: 1;" onclick="addItemModule.setMode('create')">Crear
+        Nuevo</button>
+      <button id="btn-mode-edit" class="btn" style="flex: 1; background: var(--accent); color: #594a5c;"
+        onclick="addItemModule.setMode('edit')">Editar Existente</button>
+    </div>
+
+    <h2 id="inv-form-title" style="margin-bottom: 1.5rem;">Registrar Nuevo Producto</h2>
+
+    <div id="barcode-input-container" class="hidden">
+      <label>Código de Barras</label>
+      <div style="display: flex; gap: 0.5rem; margin-bottom: 1rem;">
+        <input type="text" id="inv-barcode" style="margin-bottom: 0;" placeholder="Escanea o escribe...">
+        <button class="btn" style="width: auto; padding: 0 1rem;"
+          onclick="scannerModule.toggleScanner('inv-barcode')">Cámara</button>
+      </div>
+    </div>
+
+    <label>Nombre del Producto</label>
+    <input type="text" id="inv-name" placeholder="Ej. Camiseta Rosa">
+
+    <label>Descripción</label>
+    <textarea id="inv-description" rows="3" placeholder="Detalles, talla, material..."></textarea>
+
+    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 10px;">
+      <div>
+        <label>Stock Inicial</label>
+        <input type="number" id="inv-stock">
+      </div>
+      <div>
+        <label>Precio Compra ($)</label>
+        <input type="number" id="inv-purchase" step="0.01">
+      </div>
+    </div>
+
+    <label>Precio Venta al Público ($)</label>
+    <input type="number" id="inv-sale" step="0.01">
+
+    <button id="btn-save-product" class="btn success" onclick="addItemModule.saveProduct()">Guardar Producto</button>
+
+    <!-- Area de vista previa de etiqueta -->
+    <div id="barcode-preview-area" class="hidden"
+      style="margin-top: 2rem; padding: 1.5rem; background: white; border-radius: 15px; text-align: center; border: 2px dashed var(--primary);">
+      <p style="color: #d67eb1; font-weight: bold; margin-bottom: 10px;">Etiqueta Generada</p>
+      <svg id="barcode-svg"></svg>
+      <p id="label-product-name" style="color: #000; font-size: 0.9rem; margin-top: 5px; font-weight: bold;"></p>
+      <button class="btn" style="width: auto; margin-top: 10px; padding: 5px 15px; font-size: 0.8rem;"
+        onclick="window.print()">Imprimir Etiquetas</button>
+    </div>
+  </div>
+
+  <!-- Historical Table (Quick view) -->
+  <div class="glass-panel" style="padding: 1.5rem; display: flex; flex-direction: column;">
+    <h2 style="margin-bottom: 1rem;">Últimos Registrados</h2>
+
+    <div class="table-container" style="flex: 1;">
+      <table>
+        <thead>
+          <tr>
+            <th>Código</th>
+            <th>Nombre</th>
+            <th>Stock</th>
+            <th>Acción</th>
+          </tr>
+        </thead>
+        <tbody id="add-item-tbody">
+          <!-- Populated by JS -->
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+</div>
