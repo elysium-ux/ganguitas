@@ -73,7 +73,7 @@ const app = {
     const activeBtn = document.getElementById(`nav-${activeBtnId}`);
     if (activeBtn) activeBtn.classList.add('active');
 
-    if (viewId === 'login') {
+    if (viewId === 'login' || viewId === 'setup') {
       document.getElementById('top-nav').classList.add('hidden');
     } else {
       document.getElementById('top-nav').classList.remove('hidden');
