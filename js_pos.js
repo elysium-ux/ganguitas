@@ -26,6 +26,22 @@ const posModule = {
 
     // Inicializar UI de impresora
     if (typeof bluetoothPrinter !== 'undefined') bluetoothPrinter.updateUI();
+
+    // Sincronizar estado de caja con el backend
+    this.syncRegisterStatus();
+  },
+
+  async syncRegisterStatus() {
+    if (!app.currentUser) return;
+    const res = await API.send("getRegisterStatus", { userId: app.currentUser.userId });
+    if (res.success) {
+      if (res.isOpen) {
+        localStorage.setItem('isRegisterOpen', 'true');
+      } else {
+        localStorage.removeItem('isRegisterOpen');
+        localStorage.removeItem('expectedCash');
+      }
+    }
   },
 
   renderMovements(data) {
@@ -135,6 +151,9 @@ const posModule = {
 
   // Gastos desde POS
   showExpenseModal() {
+    if (!localStorage.getItem('isRegisterOpen')) {
+        return app.showAlert("⚠️ Debes realizar la APERTURA de caja para registrar un gasto.", "warning");
+    }
     document.getElementById('pos-expense-modal').classList.remove('hidden');
   },
 
@@ -283,6 +302,9 @@ const posModule = {
   async showCloseRegisterModal() {
     if (!app.currentUser) {
         return app.showAlert("Sesión no válida. Por favor vuelve a iniciar sesión.", "error");
+    }
+    if (!localStorage.getItem('isRegisterOpen')) {
+        return app.showAlert("⚠️ No hay una apertura de caja activa. Primero debes realizar la apertura.", "warning");
     }
     app.showLoader();
     const res = await API.send("getRegisterReport", { user: app.currentUser.userId });

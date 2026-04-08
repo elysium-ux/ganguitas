@@ -80,6 +80,9 @@ const financialsModule = {
   },
 
   showExpenseModal() {
+    if (!localStorage.getItem('isRegisterOpen')) {
+        return app.showAlert("⚠️ Debes realizar la APERTURA de caja en el Punto de Venta para registrar un gasto.", "warning");
+    }
     document.getElementById('expense-modal').classList.remove('hidden');
   },
 
@@ -88,6 +91,10 @@ const financialsModule = {
     const amount = Number(document.getElementById('exp-amount').value);
     
     if(!concept || !amount) return app.showAlert("Faltan datos del gasto", "warning");
+
+    if (!localStorage.getItem('isRegisterOpen')) {
+        return app.showAlert("⚠️ La caja se encuentra cerrada. No se pueden registrar gastos.", "error");
+    }
 
     app.showLoader();
     const res = await API.send("addExpense", { expense: { 
