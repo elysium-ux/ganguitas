@@ -23,6 +23,9 @@ const posModule = {
         if (m2.success) this.renderMovements(m2.data);
       }, 100);
     }
+
+    // Inicializar UI de impresora
+    if (typeof bluetoothPrinter !== 'undefined') bluetoothPrinter.updateUI();
   },
 
   renderMovements(data) {
@@ -235,6 +238,15 @@ const posModule = {
         this.expectedCash += this.currentTotal;
         localStorage.setItem('expectedCash', this.expectedCash);
       }
+
+      // Impresión de ticket si aplica
+      if (typeof bluetoothPrinter !== 'undefined' && bluetoothPrinter.autoPrint) {
+        await bluetoothPrinter.printReceipt(saleData);
+      } else if (typeof bluetoothPrinter !== 'undefined' && bluetoothPrinter.isConnected) {
+        // Podríamos preguntar si quiere ticket o dejar el botón manual, 
+        // por ahora autoPrint manda. 
+      }
+
       this.clearCart();
       dataManager.invalidateCache();
       this.loadCatalog(true);

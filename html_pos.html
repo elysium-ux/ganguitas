@@ -58,6 +58,10 @@
                 <button class="btn" style="background: #f28482; color: white; width: auto; padding: 0.4rem 0.8rem; font-size: 0.75rem;" onclick="posModule.showExpenseModal()">
                     <i class="fas fa-minus-circle"></i> Gasto
                 </button>
+                <div id="pos-printer-indicator" class="printer-indicator" onclick="bluetoothPrinter.showSettings()" title="Configuración de Impresora">
+                    <i class="fas fa-print"></i>
+                    <div id="printer-status-dot-mini" class="status-dot" style="width: 8px; height: 8px;"></div>
+                </div>
             </div>
         </div>
 
@@ -164,5 +168,44 @@
         <button class="btn" style="background: #f28482; color: white;" onclick="posModule.saveExpense()">Guardar Gasto</button>
         <button class="btn" style="background: #ccc;" onclick="document.getElementById('pos-expense-modal').classList.add('hidden')">Cancelar</button>
     </div>
+  </div>
+</div>
+
+<!-- Printer Settings Modal -->
+<div id="printer-modal" class="modal-overlay hidden" style="z-index: 1002;">
+  <div class="modal-content" style="max-width: 400px; padding: 2rem;">
+    <div style="text-align: center; margin-bottom: 1.5rem;">
+        <i class="fas fa-print" style="font-size: 3rem; color: #ef5da8; margin-bottom: 1rem;"></i>
+        <h2 style="margin: 0;">Impresora Bluetooth</h2>
+        <p style="font-size: 0.85rem; color: var(--text-muted);">Configura tu terminal punto de venta</p>
+    </div>
+
+    <div style="background: #f8f9fa; border-radius: 15px; padding: 1.5rem; margin-bottom: 1.5rem;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+            <span>Estado:</span>
+            <div style="display: flex; align-items: center; gap: 8px;">
+                <div id="printer-status-dot" class="status-dot"></div>
+                <strong id="printer-status-text">Desconectado</strong>
+            </div>
+        </div>
+        
+        <div style="display: flex; justify-content: space-between; align-items: center;">
+            <span>Impresión Automática:</span>
+            <label class="toggle-switch">
+                <input type="checkbox" id="printer-auto-toggle" onchange="bluetoothPrinter.toggleAutoPrint()">
+                <span class="slider"></span>
+            </label>
+        </div>
+    </div>
+
+    <div style="display: flex; flex-direction: column; gap: 10px;">
+        <button id="printer-connect-btn" class="btn success" onclick="bluetoothPrinter.connect()">Conectar Impresora</button>
+        <button class="btn" style="background: #4a90e2; color: white;" onclick="bluetoothPrinter.printTest()">Impresión de Prueba</button>
+        <button class="btn danger" onclick="bluetoothPrinter.hideSettings()">Cerrar</button>
+    </div>
+    
+    <p style="font-size: 0.7rem; color: var(--text-muted); margin-top: 1.5rem; text-align: center;">
+        <i class="fas fa-info-circle"></i> Asegúrate de que la impresora esté encendida y visible.
+    </p>
   </div>
 </div>

@@ -1,4 +1,4 @@
-const CACHE_NAME = 'ganguitas-cache-v2';
+const CACHE_NAME = 'ganguitas-cache-v3';
 const urlsToCache = [
   './',
   './index.html',
@@ -11,6 +11,7 @@ const urlsToCache = [
   './js_inventory.js',
   './js_add_item.js',
   './js_financials.js',
+  './js_bluetooth.js',
   './js_pos.js',
   './js_scanner.js',
   './Logo-ganguitas.jpg'
