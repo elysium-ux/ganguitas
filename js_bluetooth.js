@@ -71,8 +71,24 @@ const bluetoothPrinter = {
                 throw new Error("No se encontró una característica de escritura en la impresora.");
             }
 
+            // Iniciar notificaciones para recibir respuestas
+            if (this.characteristic.properties.notify) {
+                try {
+                    await this.characteristic.startNotifications();
+                    this.characteristic.addEventListener('characteristicvaluechanged', (e) => this.handlePrinterResponse(e));
+                } catch (e) {
+                    console.warn("No se pudieron activar notificaciones:", e);
+                }
+            }
+
             this.isConnected = true;
             this.updateUI();
+            
+            if (this.printerModel === 'niimbot') {
+                // Validación: Ver batería
+                this.sendNiimbotPacket(0x06, [0x01]);
+            }
+
             app.showAlert("Impresora conectada correctamente", "success");
             return true;
         } catch (error) {
@@ -278,29 +294,29 @@ const bluetoothPrinter = {
                 bitmap.push(row);
             }
 
-            // 3. Secuencia de Comandos NIIMBOT
-            console.log("Iniciando secuencia NIIMBOT (Protocolo corregido)...");
+            // 3. Secuencia de Comandos NIIMBOT v1.6
+            console.log("Iniciando secuencia NIIMBOT v1.6 (Modo GAP)...");
             
-            // Handshake / Connect (0x01)
+            // Handshake (0x01)
             await this.sendNiimbotPacket(0x01, [0x01]);
+            await new Promise(r => setTimeout(r, 200));
+            
+            // Set Paper Type a GAP (0x85 -> [0x03])
+            // 0x01: Continuous, 0x02: Black Mark, 0x03: Gap
+            await this.sendNiimbotPacket(0x85, [0x03]);
             await new Promise(r => setTimeout(r, 100));
             
-            // Query Status (0x03)
-            await this.sendNiimbotPacket(0x03, [0x01]);
-            await new Promise(r => setTimeout(r, 100));
-            
-            // Set Label Type (0x85)
-            await this.sendNiimbotPacket(0x85, [0x01]);
-            
-            // Start Print (0x10)
-            // Payload corregido para B1: [Densidad, TipoPapel, Cant_H, Cant_L]
-            await this.sendNiimbotPacket(0x10, [0x03, 0x01, 0x00, 0x01]);
+            // Start Print (0x10) - [Densidad, Tipo, Count_H, Count_L]
+            await this.sendNiimbotPacket(0x10, [0x03, 0x03, 0x00, 0x01]);
+            await new Promise(r => setTimeout(r, 200));
+
+            // NEW: Set Page Start (0x11)
+            await this.sendNiimbotPacket(0x11, [0x01]);
             await new Promise(r => setTimeout(r, 100));
 
             // Send Rows (0x83)
             for (let i = 0; i < bitmap.length; i++) {
                 const rowData = Array.from(bitmap[i]);
-                // Comando 0x83: Row Data. Index (2 bytes) + Count (1 byte) + Data
                 const packetData = [
                     (i >> 8) & 0xFF, i & 0xFF, // Index BE
                     1, // Count
@@ -325,20 +341,36 @@ const bluetoothPrinter = {
         const len = data.length;
         let packet = [0x55, 0x55, cmd, len, ...data];
         
-        // Checksum: XOR de cmd, len y data
         let cs = cmd ^ len;
         for (let b of data) cs ^= b;
         packet.push(cs);
-        
         packet.push(0xAA);
         packet.push(0xAA);
 
-        await this.characteristic.writeValueWithoutResponse(new Uint8Array(packet));
-        // Pequeño delay para no saturar el buffer de la impresora
-        await new Promise(r => setTimeout(r, 10));
+        try {
+            // Usar writeWithResponse si está disponible para comandos de setup
+            if (this.characteristic.properties.write) {
+                await this.characteristic.writeValueWithResponse(new Uint8Array(packet));
+            } else {
+                await this.characteristic.writeValueWithoutResponse(new Uint8Array(packet));
+            }
+        } catch (e) {
+            console.warn("Write error, fallback to withoutResponse:", e);
+            await this.characteristic.writeValueWithoutResponse(new Uint8Array(packet));
+        }
+        
+        await new Promise(r => setTimeout(r, 15));
     },
 
-    setPrinterModel(model) {
+    handlePrinterResponse(event) {
+        const value = event.target.value;
+        const data = new Uint8Array(value.buffer);
+        console.log("Printer Response:", Array.from(data).map(b => b.toString(16).padStart(2, '0')).join(' '));
+        
+        if (data[2] === 0x06) {
+            console.log("Batería de impresora:", data[4], "%");
+        }
+    },
         this.printerModel = model;
         localStorage.setItem('printer_model', model);
         this.disconnect(); // Desconectar para aplicar cambios de filtros en siguiente conexión
