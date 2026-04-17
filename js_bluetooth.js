@@ -216,10 +216,9 @@ const bluetoothPrinter = {
     async printNiimbotLabel(product) {
         try {
             app.showLoader();
-            // 1. Crear Canvas (50mm x 30mm @ 203 DPI = 400x240 pixels aprox)
-            // Ajustamos a múltiplos de 8 para el protocolo
-            const width = 400; 
-            const height = 240;
+            // 1. Crear Canvas (384px @ 203 DPI = 48mm reales del cabezal de la B1)
+            const width = 384; 
+            const height = 240; // 30mm aprox
             const canvas = document.createElement('canvas');
             canvas.width = width;
             canvas.height = height;
@@ -280,34 +279,37 @@ const bluetoothPrinter = {
             }
 
             // 3. Secuencia de Comandos NIIMBOT
-            console.log("Iniciando secuencia NIIMBOT...");
+            console.log("Iniciando secuencia NIIMBOT (Protocolo corregido)...");
             
-            // Handshake / Connect
+            // Handshake / Connect (0x01)
             await this.sendNiimbotPacket(0x01, [0x01]);
+            await new Promise(r => setTimeout(r, 100));
             
-            // Set Label Type (1 = Thermal)
+            // Query Status (0x03)
+            await this.sendNiimbotPacket(0x03, [0x01]);
+            await new Promise(r => setTimeout(r, 100));
+            
+            // Set Label Type (0x85)
             await this.sendNiimbotPacket(0x85, [0x01]);
             
-            // Set Print Density (1-5, 3 es medio)
-            await this.sendNiimbotPacket(0x21, [0x03]);
+            // Start Print (0x10)
+            // Payload corregido para B1: [Densidad, TipoPapel, Cant_H, Cant_L]
+            await this.sendNiimbotPacket(0x10, [0x03, 0x01, 0x00, 0x01]);
+            await new Promise(r => setTimeout(r, 100));
 
-            // Start Print (Header: total dots? No, usually count and other params)
-            // Para B1: [0x00, 0x01] suele funcionar como inicio
-            await this.sendNiimbotPacket(0x10, [0x00, 0x01]);
-
-            // Send Rows
+            // Send Rows (0x83)
             for (let i = 0; i < bitmap.length; i++) {
                 const rowData = Array.from(bitmap[i]);
-                // Comando 0x83: Row Data. Index (2 bytes) + Data
+                // Comando 0x83: Row Data. Index (2 bytes) + Count (1 byte) + Data
                 const packetData = [
-                    (i >> 8) & 0xFF, i & 0xFF, // Index
-                    1, // Count (1 row)
+                    (i >> 8) & 0xFF, i & 0xFF, // Index BE
+                    1, // Count
                     ...rowData
                 ];
                 await this.sendNiimbotPacket(0x83, packetData);
             }
 
-            // End Print
+            // End Print (0x12)
             await this.sendNiimbotPacket(0x12, [0x01]);
 
             app.hideLoader();
