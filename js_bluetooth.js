@@ -8,6 +8,11 @@ const bluetoothPrinter = {
     characteristic: null,
     isConnected: false,
     autoPrint: localStorage.getItem('printer_auto_print') === 'true',
+    printerModel: localStorage.getItem('printer_model') || 'generic', // 'generic' o 'niimbot'
+
+    // UUIDs NIIMBOT
+    NIIMBOT_SERVICE: 'e7810a71-73ae-499d-8c15-faa9aef0c3f2',
+    NIIMBOT_CHAR: 'bef8d6c9-9c21-4c9e-b632-bd58c1009f9f',
 
     // ESC/POS Commands
     commands: {
@@ -19,21 +24,35 @@ const bluetoothPrinter = {
         BOLD_OFF: [0x1B, 0x45, 0x00],
         CUT: [0x1D, 0x56, 0x41, 0x03],
         FEED_6: [0x1B, 0x64, 0x06],
-        LINE_FEED: [0x0A]
+        LINE_FEED: [0x0A],
+        // Barcode commands
+        BARCODE_WIDTH: [0x1D, 0x77, 0x02], // Default width 2
+        BARCODE_HEIGHT: [0x1D, 0x68, 0x64], // Default height 100 dots
+        BARCODE_FONT_BELOW: [0x1D, 0x48, 0x02], // HRI font below barcode
+        BARCODE_PRINT_128: [0x1D, 0x6B, 0x49]  // CODE128 (Format B/C auto usually)
     },
 
     async connect() {
         try {
             console.log("Solicitando dispositivo Bluetooth...");
+            
+            const filters = this.printerModel === 'niimbot' ? [
+                { services: [this.NIIMBOT_SERVICE] },
+                { namePrefix: 'B' }, // NIIMBOT B1, B21, etc
+                { namePrefix: 'NIIMBOT' }
+            ] : [
+                { services: ['000018f0-0000-1000-8000-00805f9b34fb'] },
+                { namePrefix: 'TP' },
+                { namePrefix: 'MPT' },
+                { namePrefix: 'Printer' },
+                { namePrefix: 'MTP' }
+            ];
+
+            const optionalServices = this.printerModel === 'niimbot' ? [this.NIIMBOT_SERVICE] : ['000018f0-0000-1000-8000-00805f9b34fb'];
+
             this.device = await navigator.bluetooth.requestDevice({
-                filters: [
-                    { services: ['000018f0-0000-1000-8000-00805f9b34fb'] }, // Generic Thermal Printer service
-                    { namePrefix: 'TP' },
-                    { namePrefix: 'MPT' },
-                    { namePrefix: 'Printer' },
-                    { namePrefix: 'MTP' }
-                ],
-                optionalServices: ['000018f0-0000-1000-8000-00805f9b34fb']
+                filters: filters,
+                optionalServices: optionalServices
             });
 
             console.log("Conectando al servidor GATT...");
@@ -41,7 +60,8 @@ const bluetoothPrinter = {
             this.server = await this.device.gatt.connect();
 
             console.log("Obteniendo servicio primario...");
-            const service = await this.server.getPrimaryService('000018f0-0000-1000-8000-00805f9b34fb');
+            const serviceUUID = this.printerModel === 'niimbot' ? this.NIIMBOT_SERVICE : '000018f0-0000-1000-8000-00805f9b34fb';
+            const service = await this.server.getPrimaryService(serviceUUID);
             
             console.log("Obteniendo característica...");
             const characteristics = await service.getCharacteristics();
@@ -151,6 +171,178 @@ const bluetoothPrinter = {
         }
     },
 
+    async printProductLabel(product) {
+        if (!this.isConnected) return app.showAlert("Conecta la impresora primero", "warning");
+
+        if (this.printerModel === 'niimbot') {
+            return this.printNiimbotLabel(product);
+        }
+
+        try {
+            // Lógica para impresora genérica (ESC/POS) - Mantener original
+            const name = product.name.substring(0, 24);
+            const price = "$" + Number(product.salePrice).toFixed(2);
+            const barcode = String(product.barcode);
+
+            let label = [
+                ...this.commands.INIT,
+                ...this.commands.ALIGN_CENTER,
+                ...this.commands.BOLD_ON,
+                ...this.encodeText(name + "\n"),
+                ...this.encodeText(price + "\n"),
+                ...this.commands.BOLD_OFF,
+                ...this.commands.LINE_FEED,
+                ...this.commands.BARCODE_WIDTH,
+                ...this.commands.BARCODE_HEIGHT,
+                ...this.commands.BARCODE_FONT_BELOW,
+                ...this.commands.BARCODE_PRINT_128,
+                barcode.length + 2,
+                0x7B, 0x42,
+                ...this.encodeText(barcode),
+                ...this.commands.LINE_FEED,
+                ...this.commands.LINE_FEED,
+                ...this.commands.CUT
+            ];
+
+            await this.sendData(new Uint8Array(label));
+        } catch (e) {
+            console.error("Error al imprimir etiqueta:", e);
+            app.showAlert("Error al imprimir etiqueta", "error");
+        }
+    },
+
+    // --- LOGICA ESPECIFICA NIIMBOT ---
+    
+    async printNiimbotLabel(product) {
+        try {
+            app.showLoader();
+            // 1. Crear Canvas (50mm x 30mm @ 203 DPI = 400x240 pixels aprox)
+            // Ajustamos a múltiplos de 8 para el protocolo
+            const width = 400; 
+            const height = 240;
+            const canvas = document.createElement('canvas');
+            canvas.width = width;
+            canvas.height = height;
+            const ctx = canvas.getContext('2d');
+
+            // Fondo blanco
+            ctx.fillStyle = 'white';
+            ctx.fillRect(0, 0, width, height);
+            ctx.fillStyle = 'black';
+
+            // Nombre del producto (Centrado arriba)
+            ctx.font = 'bold 30px Outfit, Arial';
+            ctx.textAlign = 'center';
+            ctx.fillText(product.name.substring(0, 24), width / 2, 40);
+
+            // Precio (Grande)
+            ctx.font = 'bold 50px Outfit, Arial';
+            ctx.fillText("$" + Number(product.salePrice).toFixed(2), width / 2, 95);
+
+            // Código de Barras usando JsBarcode
+            const tempImg = document.createElement('img');
+            JsBarcode(tempImg, product.barcode, {
+                format: "CODE128",
+                width: 3,
+                height: 70,
+                displayValue: true,
+                fontSize: 20,
+                margin: 0
+            });
+
+            // Dibujar imagen de barcode en canvas
+            await new Promise(resolve => {
+                tempImg.onload = () => {
+                    // Centrar horizontalmente
+                    const bWidth = tempImg.width;
+                    ctx.drawImage(tempImg, (width - bWidth) / 2, 120);
+                    resolve();
+                };
+            });
+
+            // 2. Convertir Canvas a Bitmap de 1 bit (Array de filas)
+            const imageData = ctx.getImageData(0, 0, width, height).data;
+            const bitmap = [];
+            for (let y = 0; y < height; y++) {
+                const row = new Uint8Array(width / 8);
+                for (let x = 0; x < width; x++) {
+                    const idx = (y * width + x) * 4;
+                    const r = imageData[idx];
+                    const g = imageData[idx + 1];
+                    const b = imageData[idx + 2];
+                    const avg = (r + g + b) / 3;
+                    
+                    if (avg < 128) { // Negro
+                        row[Math.floor(x / 8)] |= (0x80 >> (x % 8));
+                    }
+                }
+                bitmap.push(row);
+            }
+
+            // 3. Secuencia de Comandos NIIMBOT
+            console.log("Iniciando secuencia NIIMBOT...");
+            
+            // Handshake / Connect
+            await this.sendNiimbotPacket(0x01, [0x01]);
+            
+            // Set Label Type (1 = Thermal)
+            await this.sendNiimbotPacket(0x85, [0x01]);
+            
+            // Set Print Density (1-5, 3 es medio)
+            await this.sendNiimbotPacket(0x21, [0x03]);
+
+            // Start Print (Header: total dots? No, usually count and other params)
+            // Para B1: [0x00, 0x01] suele funcionar como inicio
+            await this.sendNiimbotPacket(0x10, [0x00, 0x01]);
+
+            // Send Rows
+            for (let i = 0; i < bitmap.length; i++) {
+                const rowData = Array.from(bitmap[i]);
+                // Comando 0x83: Row Data. Index (2 bytes) + Data
+                const packetData = [
+                    (i >> 8) & 0xFF, i & 0xFF, // Index
+                    1, // Count (1 row)
+                    ...rowData
+                ];
+                await this.sendNiimbotPacket(0x83, packetData);
+            }
+
+            // End Print
+            await this.sendNiimbotPacket(0x12, [0x01]);
+
+            app.hideLoader();
+            app.showAlert("Etiqueta impresa", "success");
+        } catch (e) {
+            console.error("Error NIIMBOT:", e);
+            app.hideLoader();
+            app.showAlert("Error: " + e.message, "error");
+        }
+    },
+
+    async sendNiimbotPacket(cmd, data = []) {
+        const len = data.length;
+        let packet = [0x55, 0x55, cmd, len, ...data];
+        
+        // Checksum: XOR de cmd, len y data
+        let cs = cmd ^ len;
+        for (let b of data) cs ^= b;
+        packet.push(cs);
+        
+        packet.push(0xAA);
+        packet.push(0xAA);
+
+        await this.characteristic.writeValueWithoutResponse(new Uint8Array(packet));
+        // Pequeño delay para no saturar el buffer de la impresora
+        await new Promise(r => setTimeout(r, 10));
+    },
+
+    setPrinterModel(model) {
+        this.printerModel = model;
+        localStorage.setItem('printer_model', model);
+        this.disconnect(); // Desconectar para aplicar cambios de filtros en siguiente conexión
+        this.updateUI();
+    },
+
     encodeText(text) {
         // Basic UTF-8 to Windows-1252/ASCII for common thermal printers (simplified)
         const encoder = new TextEncoder();
@@ -179,7 +371,11 @@ const bluetoothPrinter = {
 
         if (statusDot) statusDot.style.background = this.isConnected ? '#74c69d' : '#f28482';
         if (statusText) statusText.innerText = this.isConnected ? 'Conectado' : 'Desconectado';
-        if (connectBtn) connectBtn.innerText = this.isConnected ? 'Desconectar' : 'Conectar Impresora';
+        if (connectBtn) connectBtn.innerText = this.isConnected ? (this.printerModel === 'niimbot' ? 'Conectado (B1)' : 'Impresora Conectada') : 'Conectar Impresora';
+        
+        const modelSelect = document.getElementById('printer-model-select');
+        if (modelSelect) modelSelect.value = this.printerModel;
+        
         if (autoPrintToggle) autoPrintToggle.checked = this.autoPrint;
         
         // Indicador visual en la pantalla principal si existe

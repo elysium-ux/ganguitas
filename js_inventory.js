@@ -56,9 +56,23 @@ const inventoryModule = {
           <td style="${statusClass}">${p.stock}</td>
           <td>$${Number(p.salePrice).toFixed(2)}</td>
           <td>${p.stock > 0 ? '✅ Activo' : '❌ Agotado'}</td>
+          <td>
+            <button class="btn" style="padding: 5px; width:auto; background: var(--primary);" onclick="inventoryModule.printLabel('${p.barcode}')">
+              <i class="fas fa-print"></i>
+            </button>
+          </td>
         </tr>
       `;
     });
+  },
+
+  printLabel(barcode) {
+    const product = this.allProducts.find(p => String(p.barcode) === String(barcode));
+    if (product && typeof bluetoothPrinter !== 'undefined') {
+        bluetoothPrinter.printProductLabel(product);
+    } else {
+        app.showAlert("No se pudo enviar a impresión", "error");
+    }
   },
 
   // Auditoría

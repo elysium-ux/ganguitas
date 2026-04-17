@@ -129,5 +129,19 @@ const addItemModule = {
     } else {
       app.showAlert(res.message, "error");
     }
+  },
+
+  printCurrentLabel() {
+    const barcode = document.getElementById('inv-barcode').value;
+    const name = document.getElementById('inv-name').value;
+    const salePrice = document.getElementById('inv-sale').value;
+
+    if (!barcode || !name || !salePrice) {
+        return app.showAlert("Faltan datos para imprimir la etiqueta", "warning");
+    }
+
+    if (typeof bluetoothPrinter !== 'undefined') {
+        bluetoothPrinter.printProductLabel({ barcode, name, salePrice });
+    }
   }
 };
