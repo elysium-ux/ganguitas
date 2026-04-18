@@ -387,8 +387,8 @@ const bluetoothPrinter = {
                 console.error("⚠️ El bitmap está en BLANCO. El canvas no generó contenido negro.");
             }
 
-            // ── PROTOCOL v3.4 – writeWithoutResponse + test 8 filas ──
-            console.log("🖨️ NIIMBOT v3.4 – writeWithoutResponse + test 8 filas 0x00");
+            // ── PROTOCOL v3.5 – Añadiendo 0x20 allowPrintClear ──────────
+            console.log("🖨️ NIIMBOT v3.5 – Con comando 0x20 (activar cabezal)");
 
             const ready = await this.waitUntilAuthenticated(5000);
             if (!ready) {
@@ -396,19 +396,26 @@ const bluetoothPrinter = {
                 await this.waitUntilAuthenticated(3000);
             }
 
-            await this.sendNiimbotPacket(0x23, [0x01]);
+            await this.sendNiimbotPacket(0x23, [0x01]);   // setLabelType: GAP
             await new Promise(r => setTimeout(r, 300));
-            await this.sendNiimbotPacket(0x21, [0x05]);
+            await this.sendNiimbotPacket(0x21, [0x05]);   // setDensity: 5
             await new Promise(r => setTimeout(r, 300));
             await this.sendNiimbotPacket(0x01, [0x01]);   // startPrint
             await new Promise(r => setTimeout(r, 500));
-            await this.sendNiimbotPacket(0x03, [0x01]);   // startPage
+            await this.sendNiimbotPacket(0x03, [0x01]);   // startPagePrint
             await new Promise(r => setTimeout(r, 300));
 
-            // Test: solo 8 filas, height=8, 0x00=imprimir negro
+            // setPageSize: 4 bytes [height_h, height_l, width_bytes, copies]
             const TEST_ROWS = 8;
-            await this.sendNiimbotPacket(0x13, [0x00, TEST_ROWS, 0x01, 0x00, 0x30]);
+            await this.sendNiimbotPacket(0x13, [0x00, TEST_ROWS, 0x30, 0x01]);
             await new Promise(r => setTimeout(r, 300));
+
+            // 🔑 COMANDO CRÍTICO: allowPrintClear (0x20)
+            // Activa el cabezal térmico - sin este comando la impresora
+            // solo avanza el papel sin imprimir nada
+            console.log("🔑 Enviando allowPrintClear (0x20)...");
+            await this.sendNiimbotPacket(0x20, [0x01]);
+            await new Promise(r => setTimeout(r, 500));
 
             console.log(`📤 Enviando ${TEST_ROWS} filas 0x00 (negro máximo)...`);
             for (let i = 0; i < TEST_ROWS; i++) {
@@ -418,16 +425,16 @@ const bluetoothPrinter = {
                 ]);
                 await new Promise(r => setTimeout(r, 20));
             }
-            await new Promise(r => setTimeout(r, 500));
+            await new Promise(r => setTimeout(r, 200));
 
-            await this.sendNiimbotPacket(0xE3, [0x01]);
+            await this.sendNiimbotPacket(0xE3, [0x01]);   // endPagePrint
             await new Promise(r => setTimeout(r, 300));
             console.log("⏳ Esperando 5s...");
             await new Promise(r => setTimeout(r, 5000));
-            await this.sendNiimbotPacket(0xF3, [0x01]);
+            await this.sendNiimbotPacket(0xF3, [0x01]);   // endPrint
 
             app.hideLoader();
-            app.showAlert("TEST v3.4: ¿Salió una línea negra de ~1mm?", "info");
+            app.showAlert("TEST v3.5: ¿Salió línea negra (~1mm)?", "info");
         } catch (e) {
             console.error("Error NIIMBOT:", e);
             app.hideLoader();
