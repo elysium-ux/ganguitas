@@ -109,3 +109,61 @@
     </div>
   </div>
 </div>
+
+<!-- Modal Desglose de Corte -->
+<div id="corte-details-modal" class="modal-overlay hidden">
+  <div class="modal-content" style="max-width: 800px; width: 95%;">
+    <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 1rem;">
+      <h2 style="color: var(--primary); margin:0;">Desglose de Turno (Corte)</h2>
+      <button class="btn" style="width:auto; padding:5px 10px;" onclick="document.getElementById('corte-details-modal').classList.add('hidden')">X</button>
+    </div>
+    
+    <div style="font-size: 0.9rem; margin-bottom: 1rem; color: var(--text-muted);">
+      <div>Apertura: <strong id="corte-det-open">Cargando...</strong></div>
+      <div>Cierre: <strong id="corte-det-close">Cargando...</strong></div>
+    </div>
+
+    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; margin-bottom: 1.5rem;">
+      <div style="background: rgba(116,198,157,0.1); padding: 10px; border-radius: 8px; text-align: center;">
+        <div style="font-size: 0.8rem;">Fondo Inicial</div>
+        <strong id="corte-det-initial" style="color: #74c69d; font-size: 1.2rem;">$0.00</strong>
+      </div>
+      <div style="background: rgba(74,144,226,0.1); padding: 10px; border-radius: 8px; text-align: center;">
+        <div style="font-size: 0.8rem;">Ventas</div>
+        <strong id="corte-det-sales" style="color: #4a90e2; font-size: 1.2rem;">$0.00</strong>
+      </div>
+      <div style="background: rgba(242,132,130,0.1); padding: 10px; border-radius: 8px; text-align: center;">
+        <div style="font-size: 0.8rem;">Gastos</div>
+        <strong id="corte-det-expenses" style="color: #f28482; font-size: 1.2rem;">$0.00</strong>
+      </div>
+      <div style="background: rgba(214,126,177,0.1); padding: 10px; border-radius: 8px; text-align: center;">
+        <div style="font-size: 0.8rem;">Efectivo Final (Caja)</div>
+        <strong id="corte-det-final" style="color: #d67eb1; font-size: 1.2rem;">$0.00</strong>
+      </div>
+    </div>
+    
+    <h3 style="margin-bottom: 5px; font-size: 1rem; color: var(--primary);">Ventas Diarias</h3>
+    <div style="max-height: 200px; overflow-y: auto; margin-bottom: 1.5rem; border: 1px solid #efefef; border-radius: 8px;">
+        <table style="width: 100%; border-collapse: collapse; font-size: 0.8rem;">
+            <thead>
+                <tr style="background: #fdf4f8;">
+                    <th>Hora</th><th>Ticket</th><th>Artículos</th><th>Método</th><th>Total</th>
+                </tr>
+            </thead>
+            <tbody id="corte-det-sales-tbody"></tbody>
+        </table>
+    </div>
+
+    <h3 style="margin-bottom: 5px; font-size: 1rem; color: #f28482;">Gastos del Turno</h3>
+    <div style="max-height: 150px; overflow-y: auto; border: 1px solid #efefef; border-radius: 8px;">
+        <table style="width: 100%; border-collapse: collapse; font-size: 0.8rem;">
+            <thead>
+                <tr style="background: #fdf4f8;">
+                    <th>Fecha</th><th>Concepto</th><th>Monto</th>
+                </tr>
+            </thead>
+            <tbody id="corte-det-expenses-tbody"></tbody>
+        </table>
+    </div>
+  </div>
+</div>

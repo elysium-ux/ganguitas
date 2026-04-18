@@ -45,10 +45,17 @@ const financialsModule = {
       if (tbody) {
         tbody.innerHTML = '';
         d.cajaHistory.forEach(row => {
+          let btnHtml = '';
+          if(row[1] === 'CORTE') {
+               btnHtml = `<button class="btn" style="padding: 2px 8px; font-size: 0.7rem; width: auto;" onclick="financialsModule.viewCorte('${row[0]}', '${row[3]}')"><i class="fas fa-search"></i> Ver</button>`;
+          }
+          
           tbody.innerHTML += `
             <tr>
               <td style="font-size:0.75rem;">${app.formatDateTime(row[0])}</td>
-              <td style="font-weight:600; color:${row[1]==='APERTURA'?'#74c69d':'#d67eb1'}">${row[1]}</td>
+              <td style="font-weight:600; color:${row[1]==='APERTURA'?'#74c69d':'#d67eb1'}">
+                 ${row[1]} ${btnHtml}
+              </td>
               <td>$${Number(row[2]).toFixed(2)}</td>
               <td style="color:${Number(row[5])<0?'red':'green'}">${row[5]?'$'+Number(row[5]).toFixed(2):'---'}</td>
             </tr>
@@ -63,6 +70,60 @@ const financialsModule = {
       document.getElementById('fin-sale-cash').innerText = `$${d.salesByMethod.Efectivo.toFixed(2)}`;
       document.getElementById('fin-sale-card').innerText = `$${d.salesByMethod.Tarjeta.toFixed(2)}`;
       document.getElementById('fin-sale-trans').innerText = `$${d.salesByMethod.Transferencia.toFixed(2)}`;
+  },
+
+  async viewCorte(corteDateStr, userId) {
+      app.showLoader();
+      const res = await API.send("getCorteDetails", { data: { corteDate: corteDateStr, user: userId } });
+      app.hideLoader();
+
+      if (!res.success || !res.data) {
+          return app.showAlert("No se pudieron cargar los detalles del corte", "error");
+      }
+
+      const d = res.data;
+      document.getElementById('corte-det-open').innerText = app.formatDateTime(d.openingDate);
+      document.getElementById('corte-det-close').innerText = app.formatDateTime(d.corteDate);
+      
+      document.getElementById('corte-det-initial').innerText = `$${d.initialAmount.toFixed(2)}`;
+      document.getElementById('corte-det-sales').innerText = `$${d.sales.reduce((acc, s) => acc + s.total, 0).toFixed(2)}`;
+      document.getElementById('corte-det-expenses').innerText = `$${d.expenses.reduce((acc, e) => acc + e.amount, 0).toFixed(2)}`;
+      document.getElementById('corte-det-final').innerText = `$${d.finalAmount.toFixed(2)}`;
+
+      // Render Sales
+      const salesTbody = document.getElementById('corte-det-sales-tbody');
+      salesTbody.innerHTML = '';
+      if(d.sales.length === 0) salesTbody.innerHTML = '<tr><td colspan="5" style="text-align:center;">No hubo ventas en el turno.</td></tr>';
+      
+      d.sales.forEach(sale => {
+          const itemsDesc = sale.items.map(it => `${it.qty}x ${it.name}`).join('<br>');
+          salesTbody.innerHTML += `
+             <tr style="border-bottom: 1px solid #efefef;">
+                <td>${app.formatDateTime(sale.date).split(', ')[1] || sale.date}</td>
+                <td><small>${sale.ticketId.substring(0, 8)}...</small></td>
+                <td><small>${itemsDesc}</small></td>
+                <td>${sale.method}</td>
+                <td><strong>$${sale.total.toFixed(2)}</strong></td>
+             </tr>
+          `;
+      });
+
+      // Render Expenses
+      const expTbody = document.getElementById('corte-det-expenses-tbody');
+      expTbody.innerHTML = '';
+      if(d.expenses.length === 0) expTbody.innerHTML = '<tr><td colspan="3" style="text-align:center;">No hubo gastos reportados.</td></tr>';
+      
+      d.expenses.forEach(exp => {
+          expTbody.innerHTML += `
+             <tr style="border-bottom: 1px solid #efefef;">
+                <td>${app.formatDateTime(exp.date).split(', ')[1] || exp.date}</td>
+                <td>${exp.concept}</td>
+                <td style="color:var(--danger);"><strong>$${exp.amount.toFixed(2)}</strong></td>
+             </tr>
+          `;
+      });
+
+      document.getElementById('corte-details-modal').classList.remove('hidden');
   },
 
   handleFilterChange() {
