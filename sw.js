@@ -1,9 +1,8 @@
-const CACHE_NAME = 'ganguitas-cache-v9';
+const CACHE_NAME = 'ganguitas-cache-v10';
 const urlsToCache = [
   './',
   './index.html',
   './style.css',
-  './js_config.js',
   './js_api.js',
   './js_data.js',
   './js_main.js',
