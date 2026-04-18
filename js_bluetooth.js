@@ -396,11 +396,9 @@ const bluetoothPrinter = {
                 await this.waitUntilAuthenticated(3000);
             }
 
-            // ── MODO TEST: forzar bitmap en negro para confirmar canal ──
-            // Cambia a false cuando el contenido imprima correctamente
-            const TEST_BLACK = true;
+            // ── MODO TEST: DESACTIVADO - Usando canvas real con bits invertidos ──
+            const TEST_BLACK = false;
             if (TEST_BLACK) {
-                console.log("🔴 TEST MODE: todas las filas en negro puro (0xFF)");
                 for (let row of bitmap) row.fill(0xFF);
             }
             // ────────────────────────────────────────────────────────────
@@ -419,15 +417,17 @@ const bluetoothPrinter = {
             await this.sendNiimbotPacket(0x03, [0x01]);   // startPagePrint
             await new Promise(r => setTimeout(r, 300));
 
-            // 4. Dimensiones exactas (sin copias extra ni padding)
+            // 4. Dimensiones exactas
             // [height_h, height_l, copies=1, width_bytes_h, width_bytes_l]
             await this.sendNiimbotPacket(0x13, [0x00, 0xF0, 0x01, 0x00, 0x30]);
             await new Promise(r => setTimeout(r, 300));
 
-            // 5. Enviar SOLO las 240 filas de imagen (sin padding extra)
-            console.log(`📤 Enviando ${bitmap.length} filas...`);
+            // 5. Enviar 240 filas con bits INVERTIDOS (B1: 0=imprimir, 1=blanco)
+            console.log(`📤 Enviando ${bitmap.length} filas (bits invertidos para B1)...`);
             for (let i = 0; i < bitmap.length; i++) {
-                await this.sendNiimbotRow(i, Array.from(bitmap[i]));
+                // XOR 0xFF invierte los bits: negro→0, blanco→1
+                const invertedRow = Array.from(bitmap[i]).map(b => (~b) & 0xFF);
+                await this.sendNiimbotRow(i, invertedRow);
             }
             await new Promise(r => setTimeout(r, 500));
 
@@ -435,7 +435,7 @@ const bluetoothPrinter = {
             await this.sendNiimbotPacket(0xE3, [0x01]);   // endPagePrint
             await new Promise(r => setTimeout(r, 300));
 
-            // 7. Espera fija para que imprima (no polling que causa copias extra)
+            // 7. Espera para impresión física
             console.log("⏳ Esperando 8s para impresión física...");
             await new Promise(r => setTimeout(r, 8000));
 
@@ -443,11 +443,7 @@ const bluetoothPrinter = {
             await this.sendNiimbotPacket(0xF3, [0x01]);   // endPrint
 
             app.hideLoader();
-            if (TEST_BLACK) {
-                app.showAlert("TEST: ¿Salió la etiqueta negra sólida?", "info");
-            } else {
-                app.showAlert("Etiqueta impresa", "success");
-            }
+            app.showAlert("✅ Etiqueta impresa", "success");
         } catch (e) {
             console.error("Error NIIMBOT:", e);
             app.hideLoader();
