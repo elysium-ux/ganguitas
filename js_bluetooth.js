@@ -86,6 +86,7 @@ const bluetoothPrinter = {
             this.isAuthenticated = false; // Resetear hasta recibir ACK 0x01
             this.updateUI();
             
+            if (this.printerModel === 'niimbot') {
                 console.log("Iniciando Handshake de autenticación (0x01)...");
                 await this.sendNiimbotPacket(0x01, [0x01]);
                 
