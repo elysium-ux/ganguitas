@@ -387,8 +387,8 @@ const bluetoothPrinter = {
                 console.error("⚠️ El bitmap está en BLANCO. El canvas no generó contenido negro.");
             }
 
-            // ── PROTOCOL v3.7 – 0x20 ANTES de filas + 240 filas 0xFF ──
-            console.log("🖨️ NIIMBOT v3.7 – 0x20=clear ANTES de datos, 240×0xFF");
+            // ── PROTOCOL v3.8 – Exact niimbluelib compliance ──
+            console.log("🖨️ NIIMBOT v3.8 – Implementando PrintStart7b, SetPageSize6b y 0x85 (PrintBitmapRow)");
 
             const ready = await this.waitUntilAuthenticated(5000);
             if (!ready) {
@@ -396,43 +396,70 @@ const bluetoothPrinter = {
                 await this.waitUntilAuthenticated(3000);
             }
 
+            // 1. Tipo de etiqueta
             await this.sendNiimbotPacket(0x23, [0x01]);
-            await new Promise(r => setTimeout(r, 300));
-            await this.sendNiimbotPacket(0x21, [0x05]);
-            await new Promise(r => setTimeout(r, 300));
-            await this.sendNiimbotPacket(0x01, [0x01]);   // startPrint
-            await new Promise(r => setTimeout(r, 500));
+            await new Promise(r => setTimeout(r, 100));
+            // 2. Densidad
+            await this.sendNiimbotPacket(0x21, [0x05]); // max density
+            await new Promise(r => setTimeout(r, 100));
+            
+            // 3. PrintStart7b (B1 model requires 7 bytes: pages(2), 0, 0, 0, 0, color)
+            // 1 page = [0x00, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00]
+            await this.sendNiimbotPacket(0x01, [0x00, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00]);
+            await new Promise(r => setTimeout(r, 100));
 
-            // 🧹 0x20 al PRINCIPIO = limpiar buffer de trabajos anteriores
-            // (No después de las filas, donde borraba lo recién enviado)
-            console.log("🧹 PrintClear (0x20) antes de configurar página...");
+            // 🧹 4. Limpiar buffer (PrintClear) al principio antes de iniciar la página
             await this.sendNiimbotPacket(0x20, [0x01]);
-            await new Promise(r => setTimeout(r, 500));
+            await new Promise(r => setTimeout(r, 100));
 
-            await this.sendNiimbotPacket(0x03, [0x01]);   // startPage
-            await new Promise(r => setTimeout(r, 300));
+            // 5. Iniciar página
+            await this.sendNiimbotPacket(0x03, [0x01]);
+            await new Promise(r => setTimeout(r, 100));
 
-            // 240 filas = etiqueta completa de 30mm
-            // [height_h, height_l, width_bytes, copies]
+            // 6. Configurar Tamaño SetPageSize6b (B1 requires 6 bytes)
+            // [row_high, row_low, col_high, col_low, copies_high, copies_low]
+            // Altura = 240 (0x00, 0xF0). Ancho = 384 (0x01, 0x80). Copias = 1 (0x00, 0x01).
             const TOTAL_ROWS = 240;
-            await this.sendNiimbotPacket(0x13, [0x00, TOTAL_ROWS, 0x30, 0x01]);
-            await new Promise(r => setTimeout(r, 300));
+            await this.sendNiimbotPacket(0x13, [0x00, TOTAL_ROWS, 0x01, 0x80, 0x00, 0x01]);
+            await new Promise(r => setTimeout(r, 100));
 
-            // 240 filas de 0xFF: si 1=calor → etiqueta NEGRA SÓLIDA
-            console.log(`📤 Enviando ${TOTAL_ROWS} filas 0xFF...`);
+            // 7. Enviar filas con 0x85 (PrintBitmapRow) no indizadas
+            // Formato de data de 0x85: [pos_high, pos_low, count1, count2, count3, repeat, ...48 bytes data]
+            console.log(`📤 Enviando ${TOTAL_ROWS} filas 0xFF (Protocolo 0x85 no comprimido)...`);
             for (let i = 0; i < TOTAL_ROWS; i++) {
-                await this.sendNiimbotPacket(0x83, [
-                    (i >> 8) & 0xFF, i & 0xFF, 1,
-                    ...new Uint8Array(48).fill(0xFF)
-                ]);
-                await new Promise(r => setTimeout(r, 10));
+                let rowData = new Array(48).fill(0xFF); // Test: TODO NEGRO
+                
+                // Calcular partes (pixels negros por cada chunk de 16 bytes)
+                let parts = [0, 0, 0];
+                for(let b = 0; b < 48; b++) {
+                    let val = rowData[b];
+                    let chunkIdx = Math.floor(b / 16);
+                    for(let bit = 0; bit < 8; bit++) {
+                        if(val & (1 << bit)) {
+                            parts[chunkIdx]++;
+                        }
+                    }
+                }
+
+                let payload = [
+                    (i >> 8) & 0xFF, i & 0xFF, 
+                    parts[0], parts[1], parts[2], 
+                    1, // repeats = 1
+                    ...rowData
+                ];
+
+                await this.sendNiimbotPacket(0x85, payload);
+                await new Promise(r => setTimeout(r, 10)); // Pequeña pausa para no desbordar GATT
             }
             await new Promise(r => setTimeout(r, 300));
 
+            // 8. PageEnd
             await this.sendNiimbotPacket(0xE3, [0x01]);
             await new Promise(r => setTimeout(r, 300));
-            console.log("⏳ Esperando 5s...");
-            await new Promise(r => setTimeout(r, 5000));
+            console.log("⏳ Esperando unos segundos para procesar etiqueta...");
+            await new Promise(r => setTimeout(r, 3000));
+            
+            // 9. PrintEnd
             await this.sendNiimbotPacket(0xF3, [0x01]);
 
             app.hideLoader();
