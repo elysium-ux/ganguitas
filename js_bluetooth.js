@@ -387,8 +387,8 @@ const bluetoothPrinter = {
                 console.error("⚠️ El bitmap está en BLANCO. El canvas no generó contenido negro.");
             }
 
-            // ── PROTOCOL v3.6 – 0xFF test con cabezal activo ────────────
-            console.log("🖨️ NIIMBOT v3.6 – Test 0xFF (debería ser negro)");
+            // ── PROTOCOL v3.7 – 0x20 ANTES de filas + 240 filas 0xFF ──
+            console.log("🖨️ NIIMBOT v3.7 – 0x20=clear ANTES de datos, 240×0xFF");
 
             const ready = await this.waitUntilAuthenticated(5000);
             if (!ready) {
@@ -400,32 +400,34 @@ const bluetoothPrinter = {
             await new Promise(r => setTimeout(r, 300));
             await this.sendNiimbotPacket(0x21, [0x05]);
             await new Promise(r => setTimeout(r, 300));
-            await this.sendNiimbotPacket(0x01, [0x01]);
+            await this.sendNiimbotPacket(0x01, [0x01]);   // startPrint
             await new Promise(r => setTimeout(r, 500));
-            await this.sendNiimbotPacket(0x03, [0x01]);
-            await new Promise(r => setTimeout(r, 300));
 
-            // 4 bytes: [height_h, height_l, width_bytes, copies]
-            const TEST_ROWS = 8;
-            await this.sendNiimbotPacket(0x13, [0x00, TEST_ROWS, 0x30, 0x01]);
-            await new Promise(r => setTimeout(r, 300));
-
-            // 0x20 – activa cabezal térmico (descubierto en v3.5)
+            // 🧹 0x20 al PRINCIPIO = limpiar buffer de trabajos anteriores
+            // (No después de las filas, donde borraba lo recién enviado)
+            console.log("🧹 PrintClear (0x20) antes de configurar página...");
             await this.sendNiimbotPacket(0x20, [0x01]);
             await new Promise(r => setTimeout(r, 500));
 
-            // 🔴 TEST: 0xFF = todos los bits en 1
-            // Si 1=calor (convención estándar): etiqueta con franja negra de ~1mm
-            // Si sale en blanco → prueba final: convención invertida
-            console.log(`📤 Enviando ${TEST_ROWS} filas 0xFF (todos los bits = 1)...`);
-            for (let i = 0; i < TEST_ROWS; i++) {
-                const maxRow = new Uint8Array(48).fill(0xFF);
+            await this.sendNiimbotPacket(0x03, [0x01]);   // startPage
+            await new Promise(r => setTimeout(r, 300));
+
+            // 240 filas = etiqueta completa de 30mm
+            // [height_h, height_l, width_bytes, copies]
+            const TOTAL_ROWS = 240;
+            await this.sendNiimbotPacket(0x13, [0x00, TOTAL_ROWS, 0x30, 0x01]);
+            await new Promise(r => setTimeout(r, 300));
+
+            // 240 filas de 0xFF: si 1=calor → etiqueta NEGRA SÓLIDA
+            console.log(`📤 Enviando ${TOTAL_ROWS} filas 0xFF...`);
+            for (let i = 0; i < TOTAL_ROWS; i++) {
                 await this.sendNiimbotPacket(0x83, [
-                    (i >> 8) & 0xFF, i & 0xFF, 1, ...maxRow
+                    (i >> 8) & 0xFF, i & 0xFF, 1,
+                    ...new Uint8Array(48).fill(0xFF)
                 ]);
-                await new Promise(r => setTimeout(r, 20));
+                await new Promise(r => setTimeout(r, 10));
             }
-            await new Promise(r => setTimeout(r, 200));
+            await new Promise(r => setTimeout(r, 300));
 
             await this.sendNiimbotPacket(0xE3, [0x01]);
             await new Promise(r => setTimeout(r, 300));
@@ -434,7 +436,7 @@ const bluetoothPrinter = {
             await this.sendNiimbotPacket(0xF3, [0x01]);
 
             app.hideLoader();
-            app.showAlert("TEST v3.6: ¿Franja negra en la etiqueta?", "info");
+            app.showAlert("TEST v3.7: ¿Etiqueta negra sólida?", "info");
         } catch (e) {
             console.error("Error NIIMBOT:", e);
             app.hideLoader();
