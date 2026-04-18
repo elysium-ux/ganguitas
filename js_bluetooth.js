@@ -423,11 +423,15 @@ const bluetoothPrinter = {
             await new Promise(r => setTimeout(r, 300));
 
             // 5. Enviar 240 filas con bits INVERTIDOS (B1: 0=imprimir, 1=blanco)
-            console.log(`📤 Enviando ${bitmap.length} filas (bits invertidos para B1)...`);
+            // Sin ACK flow control - la impresora solo envía 1 ACK global, no 1 por fila
+            console.log(`📤 Enviando ${bitmap.length} filas (bits invertidos)...`);
             for (let i = 0; i < bitmap.length; i++) {
-                // XOR 0xFF invierte los bits: negro→0, blanco→1
                 const invertedRow = Array.from(bitmap[i]).map(b => (~b) & 0xFF);
-                await this.sendNiimbotRow(i, invertedRow);
+                await this.sendNiimbotPacket(0x83, [
+                    (i >> 8) & 0xFF, i & 0xFF, // index BE
+                    1,                           // copies
+                    ...invertedRow
+                ]);
             }
             await new Promise(r => setTimeout(r, 500));
 
@@ -435,9 +439,9 @@ const bluetoothPrinter = {
             await this.sendNiimbotPacket(0xE3, [0x01]);   // endPagePrint
             await new Promise(r => setTimeout(r, 300));
 
-            // 7. Espera para impresión física
-            console.log("⏳ Esperando 8s para impresión física...");
-            await new Promise(r => setTimeout(r, 8000));
+            // 7. Espera para impresión física (5s es suficiente para 1 etiqueta)
+            console.log("⏳ Esperando 5s para impresión física...");
+            await new Promise(r => setTimeout(r, 5000));
 
             // 8. Fin del trabajo
             await this.sendNiimbotPacket(0xF3, [0x01]);   // endPrint
