@@ -86,18 +86,17 @@ const bluetoothPrinter = {
             this.isAuthenticated = false; // Resetear hasta recibir ACK 0x01
             this.updateUI();
             
-            if (this.printerModel === 'niimbot') {
                 console.log("Iniciando Handshake de autenticación (0x01)...");
                 await this.sendNiimbotPacket(0x01, [0x01]);
                 
-                // Dar tiempo para recibir el ACK antes de pedir batería
-                await new Promise(r => setTimeout(r, 500));
+                // ESPERA REAL: Bloquear hasta que isAuthenticated sea true
+                const authOk = await this.waitUntilAuthenticated(8000);
                 
-                if (this.isAuthenticated) {
-                    console.log("Handshake exitoso. Pidiendo batería...");
+                if (authOk) {
+                    console.log("¡Handshake exitoso! Pidiendo batería...");
                     this.sendNiimbotPacket(0x06, [0x01]);
                 } else {
-                    console.warn("Handshake parcial o pendiente. Algunos comandos podrían ser ignorados.");
+                    console.warn("Handshake no confirmado tras espera. Reintente si falla.");
                 }
             }
 
@@ -124,6 +123,17 @@ const bluetoothPrinter = {
         if (this.device && this.device.gatt.connected) {
             this.device.gatt.disconnect();
         }
+        this.isAuthenticated = false;
+        this.isConnected = false;
+    },
+
+    async waitUntilAuthenticated(timeoutMs = 10000) {
+        const start = Date.now();
+        console.log("Esperando confirmación de impresora (Handshake)...");
+        while (!this.isAuthenticated && (Date.now() - start) < timeoutMs) {
+            await new Promise(r => setTimeout(r, 500));
+        }
+        return this.isAuthenticated;
     },
 
     async printTest() {
@@ -307,28 +317,29 @@ const bluetoothPrinter = {
                 bitmap.push(row);
             }
 
-            // 3. Secuencia de Comandos NIIMBOT v2.1
-            console.log("Iniciando secuencia NIIMBOT v2.1 (Modo GAP)...");
+            // 3. Secuencia de Comandos NIIMBOT v2.2
+            console.log("Iniciando secuencia NIIMBOT v2.2 (Modo GAP)...");
             
-            // Handshake ya se hizo en connect(), pero si no es auténtico re-intentamos
-            if (!this.isAuthenticated) {
-                console.log("Re-intentando Handshake rápido...");
+            // Asegurar que esté autenticada antes de mandar configuración
+            const ready = await this.waitUntilAuthenticated(5000);
+            if (!ready) {
+                console.log("Consiguiendo Handshake forzado...");
                 await this.sendNiimbotPacket(0x01, [0x01]);
-                await new Promise(r => setTimeout(r, 500));
+                await this.waitUntilAuthenticated(3000);
             }
 
             // NEW: Set Page Size (0x13) -> 384 x 240 dots (0x01, 0x80, 0x00, 0xF0)
             await this.sendNiimbotPacket(0x13, [0x01, 0x80, 0x00, 0xF0]);
-            await new Promise(r => setTimeout(r, 200));
+            await new Promise(r => setTimeout(r, 300));
             
             // Set Paper Type a GAP (0x85 -> [0x03])
             await this.sendNiimbotPacket(0x85, [0x03]);
-            await new Promise(r => setTimeout(r, 200));
+            await new Promise(r => setTimeout(r, 300));
             
             // Start Print (0x10) - [Densidad, Tipo, Count_H, Count_L, ?]
-            // Subimos densidad a 5 para asegurar visibilidad
+            // Densidad 5 y pausa de 1 segundo para calibración B1
             await this.sendNiimbotPacket(0x10, [0x05, 0x03, 0x00, 0x01, 0x01]);
-            await new Promise(r => setTimeout(r, 800)); // Pausa más larga para calibración
+            await new Promise(r => setTimeout(r, 1000));
 
             // NEW: Set Page Start (0x11)
             await this.sendNiimbotPacket(0x11, [0x01]);
