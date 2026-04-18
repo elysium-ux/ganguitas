@@ -387,8 +387,8 @@ const bluetoothPrinter = {
                 console.error("⚠️ El bitmap está en BLANCO. El canvas no generó contenido negro.");
             }
 
-            // ── PROTOCOL v3.3 – Modo Comprimido 0x88 (RLE) ──────────────
-            console.log("🖨️ NIIMBOT v3.3 – Modo comprimido RLE (0x88)");
+            // ── PROTOCOL v3.4 – writeWithoutResponse + test 8 filas ──
+            console.log("🖨️ NIIMBOT v3.4 – writeWithoutResponse + test 8 filas 0x00");
 
             const ready = await this.waitUntilAuthenticated(5000);
             if (!ready) {
@@ -396,66 +396,30 @@ const bluetoothPrinter = {
                 await this.waitUntilAuthenticated(3000);
             }
 
-            // 1. Configuración
-            await this.sendNiimbotPacket(0x23, [0x01]);   // setLabelType: GAP
+            await this.sendNiimbotPacket(0x23, [0x01]);
             await new Promise(r => setTimeout(r, 300));
-            await this.sendNiimbotPacket(0x21, [0x05]);   // setDensity: 5
+            await this.sendNiimbotPacket(0x21, [0x05]);
             await new Promise(r => setTimeout(r, 300));
-
-            // 2. Iniciar trabajo
             await this.sendNiimbotPacket(0x01, [0x01]);   // startPrint
             await new Promise(r => setTimeout(r, 500));
-
-            // 3. Iniciar página
-            await this.sendNiimbotPacket(0x03, [0x01]);   // startPagePrint
+            await this.sendNiimbotPacket(0x03, [0x01]);   // startPage
             await new Promise(r => setTimeout(r, 300));
 
-            // 4. Dimensiones: [height_h, height_l, copies=1, width_h, width_l]
-            await this.sendNiimbotPacket(0x13, [0x00, 0xF0, 0x01, 0x00, 0x30]);
+            // Test: solo 8 filas, height=8, 0x00=imprimir negro
+            const TEST_ROWS = 8;
+            await this.sendNiimbotPacket(0x13, [0x00, TEST_ROWS, 0x01, 0x00, 0x30]);
             await new Promise(r => setTimeout(r, 300));
 
-            // 5. Comprimir fila con RLE y enviar con comando 0x88
-            // RLE: pares de [count, value] hasta cubrir 48 bytes
-            const compressRow = (rowData) => {
-                const rle = [];
-                let i = 0;
-                while (i < rowData.length) {
-                    const val = rowData[i];
-                    let count = 1;
-                    while (i + count < rowData.length && rowData[i + count] === val && count < 255) {
-                        count++;
-                    }
-                    rle.push(count, val);
-                    i += count;
-                }
-                return rle;
-            };
-
-            // TEST simultáneo: en paralelo se prueban AMBOS comandos
-            // Filas 0-119: modo 0x83 SIN inversion (0x00 = negro)
-            // Filas 120-239: modo 0x88 RLE SIN inversion (0x00 = negro)
-            // Si aparece contenido en filas 0-119 → 0x83 funciona con 0=print
-            // Si aparece contenido en filas 120-239 → 0x88 funciona
-            console.log("📤 Enviando: filas 0-119 con 0x83, filas 120-239 con 0x88...");
-            for (let i = 0; i < bitmap.length; i++) {
-                // Usar 0x00 en TODAS las filas (sin inversion, valor crudo = 0 = debería imprimir negro)
+            console.log(`📤 Enviando ${TEST_ROWS} filas 0x00 (negro máximo)...`);
+            for (let i = 0; i < TEST_ROWS; i++) {
                 const blackRow = new Uint8Array(48).fill(0x00);
-                if (i < 120) {
-                    // Primeras 120 filas: modo no comprimido 0x83
-                    await this.sendNiimbotPacket(0x83, [
-                        (i >> 8) & 0xFF, i & 0xFF, 1, ...blackRow
-                    ]);
-                } else {
-                    // Últimas 120 filas: modo comprimido 0x88
-                    const compressed = compressRow(Array.from(blackRow));
-                    await this.sendNiimbotPacket(0x88, [
-                        (i >> 8) & 0xFF, i & 0xFF, 1, ...compressed
-                    ]);
-                }
+                await this.sendNiimbotPacket(0x83, [
+                    (i >> 8) & 0xFF, i & 0xFF, 1, ...blackRow
+                ]);
+                await new Promise(r => setTimeout(r, 20));
             }
             await new Promise(r => setTimeout(r, 500));
 
-            // 6. Fin de página y print
             await this.sendNiimbotPacket(0xE3, [0x01]);
             await new Promise(r => setTimeout(r, 300));
             console.log("⏳ Esperando 5s...");
@@ -463,7 +427,7 @@ const bluetoothPrinter = {
             await this.sendNiimbotPacket(0xF3, [0x01]);
 
             app.hideLoader();
-            app.showAlert("TEST v3.3: ¿Salieron etiquetas negras? ¿En qué mitad?", "info");
+            app.showAlert("TEST v3.4: ¿Salió una línea negra de ~1mm?", "info");
         } catch (e) {
             console.error("Error NIIMBOT:", e);
             app.hideLoader();
@@ -482,11 +446,12 @@ const bluetoothPrinter = {
         packet.push(0xAA);
 
         try {
-            // Usar writeWithResponse si está disponible para comandos de setup
-            if (this.characteristic.properties.write) {
-                await this.characteristic.writeValueWithResponse(new Uint8Array(packet));
-            } else {
+            // SIEMPRE usar writeWithoutResponse (como niimblue/python-niimbot)
+            // writeWithResponse causa problemas de fragmentación en paquetes de 58 bytes
+            if (this.characteristic.properties.writeWithoutResponse) {
                 await this.characteristic.writeValueWithoutResponse(new Uint8Array(packet));
+            } else {
+                await this.characteristic.writeValueWithResponse(new Uint8Array(packet));
             }
         } catch (e) {
             console.warn("Write error, fallback to withoutResponse:", e);
