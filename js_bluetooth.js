@@ -371,6 +371,8 @@ const bluetoothPrinter = {
             console.log("Batería de impresora:", data[4], "%");
         }
     },
+    
+    setPrinterModel(model) {
         this.printerModel = model;
         localStorage.setItem('printer_model', model);
         this.disconnect(); // Desconectar para aplicar cambios de filtros en siguiente conexión
