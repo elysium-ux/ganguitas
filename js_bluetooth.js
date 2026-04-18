@@ -267,41 +267,48 @@ const bluetoothPrinter = {
             // Fondo blanco
             ctx.fillStyle = 'white';
             ctx.fillRect(0, 0, width, height);
+            
+            // Borde negro garantizado (diagnóstico visual)
             ctx.fillStyle = 'black';
+            ctx.fillRect(0, 0, width, 8);    // Borde superior
+            ctx.fillRect(0, height - 8, width, 8); // Borde inferior
 
             // Nombre del producto (Centrado arriba)
-            ctx.font = 'bold 30px Outfit, Arial';
+            ctx.font = 'bold 28px Arial';
             ctx.textAlign = 'center';
             ctx.fillText(product.name.substring(0, 24), width / 2, 40);
 
             // Precio (Grande)
-            ctx.font = 'bold 50px Outfit, Arial';
+            ctx.font = 'bold 46px Arial';
             ctx.fillText("$" + Number(product.salePrice).toFixed(2), width / 2, 95);
 
-            // Código de Barras usando JsBarcode
-            const tempImg = document.createElement('img');
-            JsBarcode(tempImg, product.barcode, {
-                format: "CODE128",
-                width: 3,
-                height: 70,
-                displayValue: true,
-                fontSize: 20,
-                margin: 0
-            });
-
-            // Dibujar imagen de barcode en canvas
-            await new Promise(resolve => {
-                tempImg.onload = () => {
-                    // Centrar horizontalmente
-                    const bWidth = tempImg.width;
-                    ctx.drawImage(tempImg, (width - bWidth) / 2, 120);
-                    resolve();
-                };
-            });
+            // Código de Barras usando JsBarcode sobre canvas (más confiable que img)
+            try {
+                const barcodeCanvas = document.createElement('canvas');
+                JsBarcode(barcodeCanvas, String(product.barcode), {
+                    format: "CODE128",
+                    width: 2,
+                    height: 65,
+                    displayValue: true,
+                    fontSize: 16,
+                    margin: 2,
+                    background: "#ffffff",
+                    lineColor: "#000000"
+                });
+                // Centrar y dibujar el barcode en el canvas principal
+                const bx = Math.max(0, (width - barcodeCanvas.width) / 2);
+                ctx.drawImage(barcodeCanvas, bx, 118);
+                console.log(`Barcode canvas: ${barcodeCanvas.width}x${barcodeCanvas.height}`);
+            } catch (bErr) {
+                console.error("JsBarcode error:", bErr);
+                // Fallback: barras manuales si JsBarcode falla
+                ctx.fillRect(10, 120, width - 20, 80);
+            }
 
             // 2. Convertir Canvas a Bitmap de 1 bit (Array de filas)
             const imageData = ctx.getImageData(0, 0, width, height).data;
             const bitmap = [];
+            let nonZeroBytes = 0;
             for (let y = 0; y < height; y++) {
                 const row = new Uint8Array(width / 8);
                 for (let x = 0; x < width; x++) {
@@ -315,12 +322,18 @@ const bluetoothPrinter = {
                         row[Math.floor(x / 8)] |= (0x80 >> (x % 8));
                     }
                 }
+                nonZeroBytes += row.filter(b => b > 0).length;
                 bitmap.push(row);
             }
+            
+            // Diagnóstico: si el bitmap está vacío, alertar
+            console.log(`📊 Bitmap: ${bitmap.length} filas, ${nonZeroBytes} bytes con datos (esperado > 0)`);
+            if (nonZeroBytes === 0) {
+                console.error("⚠️ El bitmap está en BLANCO. El canvas no generó contenido negro.");
+            }
 
-            // 3. Secuencia de Comandos NIIMBOT B1 - Protocolo REAL v2.3
-            // Basado en análisis de NiimBlue y reverse engineering del B1
-            console.log("Iniciando secuencia NIIMBOT v2.3 (Protocolo B1 real)...");
+            // 3. Secuencia de Comandos NIIMBOT B1 - Protocolo REAL v2.4
+            console.log("Iniciando secuencia NIIMBOT v2.4 (Protocolo B1 real)...");
             
             // Asegurar handshake confirmado
             const ready = await this.waitUntilAuthenticated(5000);
