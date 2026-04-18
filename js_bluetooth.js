@@ -351,15 +351,15 @@ const bluetoothPrinter = {
             await new Promise(r => setTimeout(r, 200));
             
             // Paso 5: Set Page Size -> 0x13, [height_h, height_l, copies, width_bytes_h, width_bytes_l]
-            // height = 240 rows = 0x00, 0xF0
+            // height = 300 rows (240 imagen + 60 extra para expulsar etiqueta)
             // copies = 1 = 0x01
             // width_bytes = 384/8 = 48 bytes = 0x00, 0x30
-            console.log("Paso 5: Set page size (0x13)...");
-            await this.sendNiimbotPacket(0x13, [0x00, 0xF0, 0x01, 0x00, 0x30]);
+            console.log("Paso 5: Set page size (0x13), height=300...");
+            await this.sendNiimbotPacket(0x13, [0x01, 0x2C, 0x01, 0x00, 0x30]);
             await new Promise(r => setTimeout(r, 200));
 
-            // Paso 6: Send Rows (0x83)
-            console.log(`Paso 6: Enviando ${bitmap.length} filas (0x83)...`);
+            // Paso 6: Send Rows (0x83) - imagen + filas vacías para expulsar
+            console.log(`Paso 6: Enviando ${bitmap.length} filas de imagen (0x83)...`);
             for (let i = 0; i < bitmap.length; i++) {
                 const rowData = Array.from(bitmap[i]);
                 const packetData = [
@@ -368,6 +368,18 @@ const bluetoothPrinter = {
                     ...rowData
                 ];
                 await this.sendNiimbotPacket(0x83, packetData);
+            }
+
+            // Padding: 60 filas en blanco para expulsar la etiqueta
+            console.log("Paso 6b: Enviando 60 filas de padding para expulsar etiqueta...");
+            const blankRow = new Uint8Array(48);
+            for (let i = 0; i < 60; i++) {
+                const rowIndex = bitmap.length + i;
+                await this.sendNiimbotPacket(0x83, [
+                    (rowIndex >> 8) & 0xFF, rowIndex & 0xFF,
+                    1,
+                    ...Array.from(blankRow)
+                ]);
             }
             await new Promise(r => setTimeout(r, 300));
 
