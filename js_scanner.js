@@ -61,19 +61,15 @@ const scannerModule = {
       if(inp) {
           inp.value = decodedText;
           
-          // Disparamos un evento input/change puro
-          inp.dispatchEvent(new Event('input'));
-          inp.dispatchEvent(new Event('change'));
-
-          // Enviar un evento keyup 'Enter' simulado para activar las integraciones automáticas (cajero / buscar exacto)
-          const enterEvent = new KeyboardEvent('keyup', {
-              key: 'Enter',
-              code: 'Enter',
-              keyCode: 13,
-              which: 13,
-              bubbles: true
-          });
-          inp.dispatchEvent(enterEvent);
+          if(this.targetInputId === 'pos-search-input' && typeof posModule !== 'undefined') {
+              console.log("Scanner: Llamando auto-add para POS");
+              posModule.filterCatalog({key: 'Enter'});
+          } else if(this.targetInputId === 'filter-name' && typeof inventoryModule !== 'undefined') {
+              inventoryModule.applyFilters({key: 'Enter'});
+          } else {
+              inp.dispatchEvent(new Event('input'));
+              inp.dispatchEvent(new Event('change'));
+          }
       }
       this.stopScanner();
     } 
@@ -83,9 +79,7 @@ const scannerModule = {
       if(search) {
           search.value = decodedText;
           if(typeof posModule !== 'undefined') {
-              // Simulamos el evento
-              const enterEvent = new KeyboardEvent('keyup', { key: 'Enter', bubbles: true });
-              search.dispatchEvent(enterEvent);
+              posModule.filterCatalog({key: 'Enter'});
           }
       }
       this.stopScanner();
