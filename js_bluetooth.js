@@ -300,15 +300,19 @@ const bluetoothPrinter = {
             // Handshake (0x01)
             await this.sendNiimbotPacket(0x01, [0x01]);
             await new Promise(r => setTimeout(r, 200));
+
+            // NEW: Set Page Size (0x13) -> 384 x 240 dots (0x01, 0x80, 0x00, 0xF0)
+            await this.sendNiimbotPacket(0x13, [0x01, 0x80, 0x00, 0xF0]);
+            await new Promise(r => setTimeout(r, 100));
             
             // Set Paper Type a GAP (0x85 -> [0x03])
-            // 0x01: Continuous, 0x02: Black Mark, 0x03: Gap
             await this.sendNiimbotPacket(0x85, [0x03]);
             await new Promise(r => setTimeout(r, 100));
             
-            // Start Print (0x10) - [Densidad, Tipo, Count_H, Count_L]
-            await this.sendNiimbotPacket(0x10, [0x03, 0x03, 0x00, 0x01]);
-            await new Promise(r => setTimeout(r, 200));
+            // Start Print (0x10) - [Densidad, Tipo, Count_H, Count_L, ?]
+            // Para B1 moderna se requieren 5 bytes. El último suele ser 0x01.
+            await this.sendNiimbotPacket(0x10, [0x03, 0x03, 0x00, 0x01, 0x01]);
+            await new Promise(r => setTimeout(r, 500)); // Pausa más larga para calibración
 
             // NEW: Set Page Start (0x11)
             await this.sendNiimbotPacket(0x11, [0x01]);
