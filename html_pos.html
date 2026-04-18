@@ -197,7 +197,10 @@
             </select>
         </div>
 
-        <div style="display: flex; justify-content: space-between; align-items: center;">
+        <div id="printer-auto-toggle-container" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+            <span>Auto-imprimir ticket:</span>
+            <input type="checkbox" id="printer-auto-toggle" onchange="bluetoothPrinter.toggleAutoPrint()" style="width: 20px; height: 20px; cursor: pointer;">
+        </div>
     </div>
 
     <div style="display: flex; flex-direction: column; gap: 10px;">
