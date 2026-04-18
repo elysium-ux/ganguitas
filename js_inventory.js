@@ -26,7 +26,7 @@ const inventoryModule = {
     }
 
     let filtered = this.allProducts.filter(p => {
-      const matchName = p.name.toLowerCase().includes(nameQ) || String(p.barcode).includes(nameQ);
+      const matchName = p.name.toLowerCase().includes(nameQ) || String(p.barcode).toLowerCase().includes(nameQ);
       let matchStock = true;
       if (stockVal === 'low') matchStock = p.stock > 0 && p.stock < 5;
       else if (stockVal === 'out') matchStock = p.stock <= 0;

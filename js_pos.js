@@ -119,7 +119,8 @@ const posModule = {
 
     // Auto-Add on Scanner Entry (Presses Enter)
     if (e && e.key === 'Enter') {
-        const exactMatch = this.catalog.find(p => String(p.barcode) === q);
+        // Aseguramos que la comparación sea case-insensitive
+        const exactMatch = this.catalog.find(p => String(p.barcode).toLowerCase() === q);
         if (exactMatch) {
             this.addToCart(exactMatch.barcode);
             input.value = '';
@@ -135,7 +136,8 @@ const posModule = {
     }
     
     this.showView('search');
-    const filtered = this.catalog.filter(p => p.name.toLowerCase().includes(q) || String(p.barcode).includes(q));
+    // Búsqueda aproximada case-insensitive también para código de barras
+    const filtered = this.catalog.filter(p => p.name.toLowerCase().includes(q) || String(p.barcode).toLowerCase().includes(q));
     this.renderCatalog(filtered);
   },
 
