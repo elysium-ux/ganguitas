@@ -387,51 +387,61 @@ const bluetoothPrinter = {
                 console.error("⚠️ El bitmap está en BLANCO. El canvas no generó contenido negro.");
             }
 
-            // 3. Secuencia NIIMBOT v2.8 - Minimalista sin 0x03
-            console.log("Iniciando secuencia NIIMBOT v2.8 (Minimalista)...");
-            
+            // ── PROTOCOL v3.0 ──────────────────────────────────────────
+            // Orden correcto confirmado: startPrint → startPage → setPageSize
+            //   → rows → endPage → (waitStatus) → endPrint
+            console.log("🖨️ NIIMBOT v3.0 – secuencia correcta confirmada");
+
             const ready = await this.waitUntilAuthenticated(5000);
             if (!ready) {
                 await this.sendNiimbotPacket(0x01, [0x01]);
                 await this.waitUntilAuthenticated(3000);
             }
 
-            // Paso 1: Set Label Type
-            await this.sendNiimbotPacket(0x23, [0x01]);
+            // 1. Configuración previa
+            await this.sendNiimbotPacket(0x23, [0x01]);   // setLabelType: 1 = GAP
             await new Promise(r => setTimeout(r, 300));
-            
-            // Paso 2: Set Density
-            await this.sendNiimbotPacket(0x21, [0x05]);
-            await new Promise(r => setTimeout(r, 300));
-            
-            // Paso 3: Start Print (sin 0x03 esta vez)
-            await this.sendNiimbotPacket(0x01, [0x00]);
-            await new Promise(r => setTimeout(r, 500));
-            
-            // Paso 4: Set Page Size - formato [width_h, width_l, height_h, height_l]
-            // width = 48 bytes (384/8), height = 240 rows  
-            console.log("Paso 4: Set page size [width=48, height=240]...");
-            await this.sendNiimbotPacket(0x13, [0x00, 0x30, 0x00, 0xF0]);
+            await this.sendNiimbotPacket(0x21, [0x05]);   // setDensity: 5 (máx)
             await new Promise(r => setTimeout(r, 300));
 
-            // Paso 5: Enviar filas (240 imagen + 60 padding)
-            console.log(`Paso 5: Enviando ${bitmap.length} filas...`);
+            // 2. Iniciar trabajo de impresión
+            await this.sendNiimbotPacket(0x01, [0x01]);   // startPrint
+            await new Promise(r => setTimeout(r, 500));
+
+            // 3. Iniciar página (ANTES de setPageSize)
+            await this.sendNiimbotPacket(0x03, [0x01]);   // startPagePrint
+            await new Promise(r => setTimeout(r, 300));
+
+            // 4. Dimensiones: [height_h, height_l, copies, width_bytes_h, width_bytes_l]
+            //    height = 240 rows = 0x00,0xF0 | copies = 1 | width = 48 bytes = 0x00,0x30
+            await this.sendNiimbotPacket(0x13, [0x00, 0xF0, 0x01, 0x00, 0x30]);
+            await new Promise(r => setTimeout(r, 300));
+
+            // 5. Enviar filas de imagen
+            console.log(`📤 Enviando ${bitmap.length} filas + 60 padding...`);
             for (let i = 0; i < bitmap.length; i++) {
                 await this.sendNiimbotRow(i, Array.from(bitmap[i]));
             }
-            console.log("Paso 5b: 60 filas de padding...");
+            // Padding para expulsar la etiqueta
             const blankRow = new Uint8Array(48);
             for (let i = 0; i < 60; i++) {
                 await this.sendNiimbotRow(bitmap.length + i, Array.from(blankRow));
             }
             await new Promise(r => setTimeout(r, 500));
 
-            // Paso 6: End Print -> probando 0xF0 como alternativa a 0xF3
-            console.log("Paso 6: End print (0xF0)...");
-            await this.sendNiimbotPacket(0xF0, [0x01]);
+            // 6. Fin de página
+            await this.sendNiimbotPacket(0xE3, [0x01]);   // endPagePrint
             await new Promise(r => setTimeout(r, 300));
-            // También enviar 0xF3 por si acaso
-            await this.sendNiimbotPacket(0xF3, [0x01]);
+
+            // 7. Esperar que la impresora termine físicamente (polling 0x1A)
+            console.log("⏳ Esperando status de impresión (0x1A)...");
+            for (let i = 0; i < 20; i++) {
+                await this.sendNiimbotPacket(0x1A, [0x01]);
+                await new Promise(r => setTimeout(r, 500));
+            }
+
+            // 8. Fin del trabajo
+            await this.sendNiimbotPacket(0xF3, [0x01]);   // endPrint
 
             app.hideLoader();
             app.showAlert("Etiqueta impresa", "success");
