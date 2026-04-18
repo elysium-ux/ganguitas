@@ -294,8 +294,8 @@ const bluetoothPrinter = {
                 bitmap.push(row);
             }
 
-            // 3. Secuencia de Comandos NIIMBOT v1.6
-            console.log("Iniciando secuencia NIIMBOT v1.6 (Modo GAP)...");
+            // 3. Secuencia de Comandos NIIMBOT v2.0
+            console.log("Iniciando secuencia NIIMBOT v2.0 (Modo GAP)...");
             
             // Handshake (0x01)
             await this.sendNiimbotPacket(0x01, [0x01]);

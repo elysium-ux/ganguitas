@@ -1,4 +1,4 @@
-const CACHE_NAME = 'ganguitas-cache-v10';
+const CACHE_NAME = 'ganguitas-cache-v11';
 const urlsToCache = [
   './',
   './index.html',
@@ -17,6 +17,7 @@ const urlsToCache = [
 ];
 
 self.addEventListener('install', event => {
+  self.skipWaiting(); // Forzar actualización
   event.waitUntil(
     caches.open(CACHE_NAME)
       .then(cache => {
@@ -26,6 +27,7 @@ self.addEventListener('install', event => {
 });
 
 self.addEventListener('activate', event => {
+  event.waitUntil(clients.claim()); // Tomar control de inmediato
   event.waitUntil(
     caches.keys().then(cacheNames => {
       return Promise.all(
