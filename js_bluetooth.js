@@ -387,10 +387,8 @@ const bluetoothPrinter = {
                 console.error("⚠️ El bitmap está en BLANCO. El canvas no generó contenido negro.");
             }
 
-            // ── PROTOCOL v3.0 ──────────────────────────────────────────
-            // Orden correcto confirmado: startPrint → startPage → setPageSize
-            //   → rows → endPage → (waitStatus) → endPrint
-            console.log("🖨️ NIIMBOT v3.0 – secuencia correcta confirmada");
+            // ── PROTOCOL v3.1 ──────────────────────────────────────────
+            console.log("🖨️ NIIMBOT v3.1");
 
             const ready = await this.waitUntilAuthenticated(5000);
             if (!ready) {
@@ -398,34 +396,38 @@ const bluetoothPrinter = {
                 await this.waitUntilAuthenticated(3000);
             }
 
-            // 1. Configuración previa
-            await this.sendNiimbotPacket(0x23, [0x01]);   // setLabelType: 1 = GAP
+            // ── MODO TEST: forzar bitmap en negro para confirmar canal ──
+            // Cambia a false cuando el contenido imprima correctamente
+            const TEST_BLACK = true;
+            if (TEST_BLACK) {
+                console.log("🔴 TEST MODE: todas las filas en negro puro (0xFF)");
+                for (let row of bitmap) row.fill(0xFF);
+            }
+            // ────────────────────────────────────────────────────────────
+
+            // 1. Configuración
+            await this.sendNiimbotPacket(0x23, [0x01]);   // setLabelType: GAP
             await new Promise(r => setTimeout(r, 300));
-            await this.sendNiimbotPacket(0x21, [0x05]);   // setDensity: 5 (máx)
+            await this.sendNiimbotPacket(0x21, [0x05]);   // setDensity: 5
             await new Promise(r => setTimeout(r, 300));
 
-            // 2. Iniciar trabajo de impresión
+            // 2. Iniciar trabajo
             await this.sendNiimbotPacket(0x01, [0x01]);   // startPrint
             await new Promise(r => setTimeout(r, 500));
 
-            // 3. Iniciar página (ANTES de setPageSize)
+            // 3. Iniciar página
             await this.sendNiimbotPacket(0x03, [0x01]);   // startPagePrint
             await new Promise(r => setTimeout(r, 300));
 
-            // 4. Dimensiones: [height_h, height_l, copies, width_bytes_h, width_bytes_l]
-            //    height = 240 rows = 0x00,0xF0 | copies = 1 | width = 48 bytes = 0x00,0x30
+            // 4. Dimensiones exactas (sin copias extra ni padding)
+            // [height_h, height_l, copies=1, width_bytes_h, width_bytes_l]
             await this.sendNiimbotPacket(0x13, [0x00, 0xF0, 0x01, 0x00, 0x30]);
             await new Promise(r => setTimeout(r, 300));
 
-            // 5. Enviar filas de imagen
-            console.log(`📤 Enviando ${bitmap.length} filas + 60 padding...`);
+            // 5. Enviar SOLO las 240 filas de imagen (sin padding extra)
+            console.log(`📤 Enviando ${bitmap.length} filas...`);
             for (let i = 0; i < bitmap.length; i++) {
                 await this.sendNiimbotRow(i, Array.from(bitmap[i]));
-            }
-            // Padding para expulsar la etiqueta
-            const blankRow = new Uint8Array(48);
-            for (let i = 0; i < 60; i++) {
-                await this.sendNiimbotRow(bitmap.length + i, Array.from(blankRow));
             }
             await new Promise(r => setTimeout(r, 500));
 
@@ -433,18 +435,19 @@ const bluetoothPrinter = {
             await this.sendNiimbotPacket(0xE3, [0x01]);   // endPagePrint
             await new Promise(r => setTimeout(r, 300));
 
-            // 7. Esperar que la impresora termine físicamente (polling 0x1A)
-            console.log("⏳ Esperando status de impresión (0x1A)...");
-            for (let i = 0; i < 20; i++) {
-                await this.sendNiimbotPacket(0x1A, [0x01]);
-                await new Promise(r => setTimeout(r, 500));
-            }
+            // 7. Espera fija para que imprima (no polling que causa copias extra)
+            console.log("⏳ Esperando 8s para impresión física...");
+            await new Promise(r => setTimeout(r, 8000));
 
             // 8. Fin del trabajo
             await this.sendNiimbotPacket(0xF3, [0x01]);   // endPrint
 
             app.hideLoader();
-            app.showAlert("Etiqueta impresa", "success");
+            if (TEST_BLACK) {
+                app.showAlert("TEST: ¿Salió la etiqueta negra sólida?", "info");
+            } else {
+                app.showAlert("Etiqueta impresa", "success");
+            }
         } catch (e) {
             console.error("Error NIIMBOT:", e);
             app.hideLoader();
