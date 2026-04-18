@@ -10,6 +10,7 @@ const bluetoothPrinter = {
     autoPrint: localStorage.getItem('printer_auto_print') === 'true',
     printerModel: localStorage.getItem('printer_model') || 'generic', // 'generic' o 'niimbot'
     isAuthenticated: false,
+    pendingRowAck: null, // Control de flujo: resolve() al recibir ACK de fila
 
     // UUIDs NIIMBOT
     NIIMBOT_SERVICE: 'e7810a71-73ae-499d-8c15-faa9aef0c3f2',
@@ -371,28 +372,17 @@ const bluetoothPrinter = {
             await this.sendNiimbotPacket(0x13, [0x01, 0x2C, 0x01, 0x00, 0x30]);
             await new Promise(r => setTimeout(r, 200));
 
-            // Paso 6: Send Rows (0x83) - imagen + filas vacías para expulsar
-            console.log(`Paso 6: Enviando ${bitmap.length} filas de imagen (0x83)...`);
+            // Paso 6: Send Rows con control de flujo ACK
+            console.log(`Paso 6: Enviando ${bitmap.length} filas con ACK flow control...`);
             for (let i = 0; i < bitmap.length; i++) {
-                const rowData = Array.from(bitmap[i]);
-                const packetData = [
-                    (i >> 8) & 0xFF, i & 0xFF, // Index BE
-                    1, // Count/copies
-                    ...rowData
-                ];
-                await this.sendNiimbotPacket(0x83, packetData);
+                await this.sendNiimbotRow(i, Array.from(bitmap[i]));
             }
 
             // Padding: 60 filas en blanco para expulsar la etiqueta
             console.log("Paso 6b: Enviando 60 filas de padding para expulsar etiqueta...");
             const blankRow = new Uint8Array(48);
             for (let i = 0; i < 60; i++) {
-                const rowIndex = bitmap.length + i;
-                await this.sendNiimbotPacket(0x83, [
-                    (rowIndex >> 8) & 0xFF, rowIndex & 0xFF,
-                    1,
-                    ...Array.from(blankRow)
-                ]);
+                await this.sendNiimbotRow(bitmap.length + i, Array.from(blankRow));
             }
             await new Promise(r => setTimeout(r, 300));
 
@@ -446,19 +436,49 @@ const bluetoothPrinter = {
         
         // NIIMBOT responde con cmd+1. El ACK del handshake (0x01) llega como 0x02.
         if (data[2] === 0x02) {
-            console.log("✅ Handshake ACK recibido (cmd+1 pattern). Autenticación OK.");
             this.isAuthenticated = true;
+            console.log("✅ Handshake ACK. Autenticación OK.");
         }
         
-        // ACK de batería (0x06 -> respuesta 0x07)
+        // ACK de fila (0x83 -> 0xD3): resolver el pendingRowAck para control de flujo
+        if (data[2] === 0xD3) {
+            const rowIdx = (data[3] << 8) | data[4];
+            console.log(`✅ Row ACK recibido (fila ~${rowIdx})`);
+            if (this.pendingRowAck) {
+                const resolve = this.pendingRowAck;
+                this.pendingRowAck = null;
+                resolve();
+            }
+        }
+        
+        // ACK de batería (0x06 -> 0x07)
         if (data[2] === 0x07) {
-            console.log("🔋 Batería de impresora:", data[4], "%");
+            console.log("🔋 Batería:", data[4], "%");
         }
-        
-        // Estado general para debug
-        console.log("Printer Response raw:", Array.from(data).map(b => b.toString(16).padStart(2, '0')).join(' '));
     },
     
+    // Enviar una fila y esperar el ACK (0xD3) antes de continuar (flow control)
+    async sendNiimbotRow(rowIndex, rowData) {
+        const ACK_TIMEOUT = 300; // ms antes de continuar sin ACK
+        return new Promise((resolve) => {
+            this.pendingRowAck = resolve;
+            const packetData = [
+                (rowIndex >> 8) & 0xFF, rowIndex & 0xFF,
+                1, // copies
+                ...rowData
+            ];
+            this.sendNiimbotPacket(0x83, packetData).then(() => {
+                // Timeout de seguridad
+                setTimeout(() => {
+                    if (this.pendingRowAck) {
+                        this.pendingRowAck = null;
+                        resolve();
+                    }
+                }, ACK_TIMEOUT);
+            });
+        });
+    },
+
     setPrinterModel(model) {
         this.printerModel = model;
         localStorage.setItem('printer_model', model);
