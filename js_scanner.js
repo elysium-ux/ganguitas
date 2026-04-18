@@ -55,19 +55,38 @@ const scannerModule = {
       sound.play().catch(e => { /* Ignore auto-play strict rules */ });
     } catch(e) {}
 
-    // Si fue abierto desde inventario
+    // Si fue llamado con un Input ID específico (Venta en POS, Auditoría, o Filtro)
     if(this.targetInputId) {
       const inp = document.getElementById(this.targetInputId);
-      if(inp) inp.value = decodedText;
+      if(inp) {
+          inp.value = decodedText;
+          
+          // Disparamos un evento input/change puro
+          inp.dispatchEvent(new Event('input'));
+          inp.dispatchEvent(new Event('change'));
+
+          // Enviar un evento keyup 'Enter' simulado para activar las integraciones automáticas (cajero / buscar exacto)
+          const enterEvent = new KeyboardEvent('keyup', {
+              key: 'Enter',
+              code: 'Enter',
+              keyCode: 13,
+              which: 13,
+              bubbles: true
+          });
+          inp.dispatchEvent(enterEvent);
+      }
       this.stopScanner();
     } 
-    // Si fue abierto desde POS
+    // Comportamiento legado (por si no se pasó ID)
     else {
-      const search = document.getElementById('catalog-search');
-      if(search) search.value = decodedText;
-      if(typeof posModule !== 'undefined') {
-        posModule.filterCatalog();
-        posModule.addToCart(decodedText);
+      const search = document.getElementById('catalog-search') || document.getElementById('pos-search-input');
+      if(search) {
+          search.value = decodedText;
+          if(typeof posModule !== 'undefined') {
+              // Simulamos el evento
+              const enterEvent = new KeyboardEvent('keyup', { key: 'Enter', bubbles: true });
+              search.dispatchEvent(enterEvent);
+          }
       }
       this.stopScanner();
     }

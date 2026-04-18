@@ -146,12 +146,12 @@ const posModule = {
     }
 
     const product = this.catalog.find(p => String(p.barcode) === String(barcode));
-    if (!product) { app.showAlert("Producto no encontrado", "warning"); return; }
-    if (product.stock <= 0) { app.showAlert("Sin inventario", "error"); return; }
+    if (!product) { app.showAlert("⚠️ Producto no encontrado o código no registrado.", "warning"); return; }
+    if (product.stock <= 0) { app.showAlert(`❌ No puedes agregar "${product.name}" porque tiene STOCK EN 0.`, "error"); return; }
 
     const existing = this.cart.find(c => c.barcode === product.barcode);
     if (existing) {
-      if (existing.qty >= product.stock) { app.showAlert("Stock límite alcanzado", "warning"); return; }
+      if (existing.qty >= product.stock) { app.showAlert(`❌ Límite alcanzado: Sólo quedan ${product.stock} de "${product.name}" en stock.`, "warning"); return; }
       existing.qty++;
     } else {
       this.cart.push({ ...product, qty: 1 });
