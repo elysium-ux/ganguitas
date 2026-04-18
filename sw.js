@@ -1,4 +1,4 @@
-const CACHE_NAME = 'ganguitas-cache-v6';
+const CACHE_NAME = 'ganguitas-cache-v7';
 const urlsToCache = [
   './',
   './index.html',
