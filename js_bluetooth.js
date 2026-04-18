@@ -9,6 +9,7 @@ const bluetoothPrinter = {
     isConnected: false,
     autoPrint: localStorage.getItem('printer_auto_print') === 'true',
     printerModel: localStorage.getItem('printer_model') || 'generic', // 'generic' o 'niimbot'
+    isAuthenticated: false,
 
     // UUIDs NIIMBOT
     NIIMBOT_SERVICE: 'e7810a71-73ae-499d-8c15-faa9aef0c3f2',
@@ -82,11 +83,22 @@ const bluetoothPrinter = {
             }
 
             this.isConnected = true;
+            this.isAuthenticated = false; // Resetear hasta recibir ACK 0x01
             this.updateUI();
             
             if (this.printerModel === 'niimbot') {
-                // Validación: Ver batería
-                this.sendNiimbotPacket(0x06, [0x01]);
+                console.log("Iniciando Handshake de autenticación (0x01)...");
+                await this.sendNiimbotPacket(0x01, [0x01]);
+                
+                // Dar tiempo para recibir el ACK antes de pedir batería
+                await new Promise(r => setTimeout(r, 500));
+                
+                if (this.isAuthenticated) {
+                    console.log("Handshake exitoso. Pidiendo batería...");
+                    this.sendNiimbotPacket(0x06, [0x01]);
+                } else {
+                    console.warn("Handshake parcial o pendiente. Algunos comandos podrían ser ignorados.");
+                }
             }
 
             app.showAlert("Impresora conectada correctamente", "success");
@@ -100,6 +112,7 @@ const bluetoothPrinter = {
 
     onDisconnected() {
         this.isConnected = false;
+        this.isAuthenticated = false;
         this.device = null;
         this.server = null;
         this.characteristic = null;
@@ -294,25 +307,28 @@ const bluetoothPrinter = {
                 bitmap.push(row);
             }
 
-            // 3. Secuencia de Comandos NIIMBOT v2.0
-            console.log("Iniciando secuencia NIIMBOT v2.0 (Modo GAP)...");
+            // 3. Secuencia de Comandos NIIMBOT v2.1
+            console.log("Iniciando secuencia NIIMBOT v2.1 (Modo GAP)...");
             
-            // Handshake (0x01)
-            await this.sendNiimbotPacket(0x01, [0x01]);
-            await new Promise(r => setTimeout(r, 200));
+            // Handshake ya se hizo en connect(), pero si no es auténtico re-intentamos
+            if (!this.isAuthenticated) {
+                console.log("Re-intentando Handshake rápido...");
+                await this.sendNiimbotPacket(0x01, [0x01]);
+                await new Promise(r => setTimeout(r, 500));
+            }
 
             // NEW: Set Page Size (0x13) -> 384 x 240 dots (0x01, 0x80, 0x00, 0xF0)
             await this.sendNiimbotPacket(0x13, [0x01, 0x80, 0x00, 0xF0]);
-            await new Promise(r => setTimeout(r, 100));
+            await new Promise(r => setTimeout(r, 200));
             
             // Set Paper Type a GAP (0x85 -> [0x03])
             await this.sendNiimbotPacket(0x85, [0x03]);
-            await new Promise(r => setTimeout(r, 100));
+            await new Promise(r => setTimeout(r, 200));
             
             // Start Print (0x10) - [Densidad, Tipo, Count_H, Count_L, ?]
-            // Para B1 moderna se requieren 5 bytes. El último suele ser 0x01.
-            await this.sendNiimbotPacket(0x10, [0x03, 0x03, 0x00, 0x01, 0x01]);
-            await new Promise(r => setTimeout(r, 500)); // Pausa más larga para calibración
+            // Subimos densidad a 5 para asegurar visibilidad
+            await this.sendNiimbotPacket(0x10, [0x05, 0x03, 0x00, 0x01, 0x01]);
+            await new Promise(r => setTimeout(r, 800)); // Pausa más larga para calibración
 
             // NEW: Set Page Start (0x11)
             await this.sendNiimbotPacket(0x11, [0x01]);
@@ -370,6 +386,14 @@ const bluetoothPrinter = {
         const value = event.target.value;
         const data = new Uint8Array(value.buffer);
         console.log("Printer Response:", Array.from(data).map(b => b.toString(16).padStart(2, '0')).join(' '));
+        
+        if (data[2] === 0x01) {
+            console.log("Handshake response:", data[4]);
+            if (data[4] === 0x01 || data[4] === 0x02) {
+                this.isAuthenticated = true;
+                console.log("Autenticación NIIMBOT OK");
+            }
+        }
         
         if (data[2] === 0x06) {
             console.log("Batería de impresora:", data[4], "%");
