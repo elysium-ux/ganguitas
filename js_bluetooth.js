@@ -399,17 +399,19 @@ const bluetoothPrinter = {
         const data = new Uint8Array(value.buffer);
         console.log("Printer Response:", Array.from(data).map(b => b.toString(16).padStart(2, '0')).join(' '));
         
-        if (data[2] === 0x01) {
-            console.log("Handshake response:", data[4]);
-            if (data[4] === 0x01 || data[4] === 0x02) {
-                this.isAuthenticated = true;
-                console.log("Autenticación NIIMBOT OK");
-            }
+        // NIIMBOT responde con cmd+1. El ACK del handshake (0x01) llega como 0x02.
+        if (data[2] === 0x02) {
+            console.log("✅ Handshake ACK recibido (cmd+1 pattern). Autenticación OK.");
+            this.isAuthenticated = true;
         }
         
-        if (data[2] === 0x06) {
-            console.log("Batería de impresora:", data[4], "%");
+        // ACK de batería (0x06 -> respuesta 0x07)
+        if (data[2] === 0x07) {
+            console.log("🔋 Batería de impresora:", data[4], "%");
         }
+        
+        // Estado general para debug
+        console.log("Printer Response raw:", Array.from(data).map(b => b.toString(16).padStart(2, '0')).join(' '));
     },
     
     setPrinterModel(model) {
