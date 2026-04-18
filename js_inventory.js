@@ -15,10 +15,15 @@ const inventoryModule = {
     }
   },
 
-  applyFilters() {
-    const nameQ = document.getElementById('filter-name').value.toLowerCase();
+  applyFilters(e) {
+    const input = document.getElementById('filter-name');
+    const nameQ = input.value.toLowerCase().trim();
     const sortVal = document.getElementById('filter-sort').value;
     const stockVal = document.getElementById('filter-stock').value;
+
+    if (e && e.key === 'Enter') {
+        input.select();
+    }
 
     let filtered = this.allProducts.filter(p => {
       const matchName = p.name.toLowerCase().includes(nameQ) || String(p.barcode).includes(nameQ);

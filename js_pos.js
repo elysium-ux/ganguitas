@@ -113,9 +113,23 @@ const posModule = {
     });
   },
 
-  filterCatalog() {
-    const q = document.getElementById('pos-search-input').value.toLowerCase();
-    if(q.trim() === '') {
+  filterCatalog(e) {
+    const input = document.getElementById('pos-search-input');
+    const q = input.value.toLowerCase().trim();
+
+    // Auto-Add on Scanner Entry (Presses Enter)
+    if (e && e.key === 'Enter') {
+        const exactMatch = this.catalog.find(p => String(p.barcode) === q);
+        if (exactMatch) {
+            this.addToCart(exactMatch.barcode);
+            input.value = '';
+            this.showView('movements');
+            input.focus();
+            return;
+        }
+    }
+
+    if(q === '') {
         this.showView('movements');
         return;
     }

@@ -342,17 +342,17 @@ const bluetoothPrinter = {
                 const barcodeCanvas = document.createElement('canvas');
                 JsBarcode(barcodeCanvas, String(product.barcode), {
                     format: "CODE128",
-                    width: 2,
-                    height: 65,
+                    width: 3.5, // Más ancho para mejorar lectura de scanner térmico (antes 2)
+                    height: 90, // Más alto (antes 65)
                     displayValue: true,
-                    fontSize: 16,
+                    fontSize: 20, // (antes 16)
                     margin: 2,
                     background: "#ffffff",
                     lineColor: "#000000"
                 });
                 // Centrar y dibujar el barcode en el canvas principal
                 const bx = Math.max(0, (width - barcodeCanvas.width) / 2);
-                ctx.drawImage(barcodeCanvas, bx, 118);
+                ctx.drawImage(barcodeCanvas, bx, 110); // Ligeramente más arriba (antes 118)
                 console.log(`Barcode canvas: ${barcodeCanvas.width}x${barcodeCanvas.height}`);
             } catch (bErr) {
                 console.error("JsBarcode error:", bErr);
