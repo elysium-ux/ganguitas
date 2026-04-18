@@ -427,7 +427,7 @@ const bluetoothPrinter = {
             // Formato de data de 0x85: [pos_high, pos_low, count1, count2, count3, repeat, ...48 bytes data]
             console.log(`📤 Enviando ${TOTAL_ROWS} filas 0xFF (Protocolo 0x85 no comprimido)...`);
             for (let i = 0; i < TOTAL_ROWS; i++) {
-                let rowData = new Array(48).fill(0xFF); // Test: TODO NEGRO
+                let rowData = Array.from(bitmap[i]); // Usa el bitmap real dibujado en el Canvas
                 
                 // Calcular partes (pixels negros por cada chunk de 16 bytes)
                 let parts = [0, 0, 0];
