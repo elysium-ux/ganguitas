@@ -141,6 +141,10 @@ const bluetoothPrinter = {
     async printTest() {
         if (!this.isConnected) return app.showAlert("Conecta la impresora primero", "warning");
         
+        if (this.printerModel === 'niimbot') {
+            return this.printNiimbotDiagnosticTest();
+        }
+
         const data = new Uint8Array([
             ...this.commands.INIT,
             ...this.commands.ALIGN_CENTER,
@@ -158,6 +162,56 @@ const bluetoothPrinter = {
         ]);
 
         await this.sendData(data);
+    },
+
+    // Test diagnóstico: envía barras negras sólidas hardcodeadas (sin canvas, sin JsBarcode)
+    // Si esto NO imprime, es problema físico (papel al revés o cabezal)
+    // Si ESTO imprime pero la etiqueta no, es problema del canvas
+    async printNiimbotDiagnosticTest() {
+        try {
+            app.showLoader();
+            console.log("🔬 Iniciando test diagnóstico NIIMBOT (barras sólidas)...");
+            
+            const ready = await this.waitUntilAuthenticated(5000);
+            if (!ready) {
+                await this.sendNiimbotPacket(0x01, [0x01]);
+                await this.waitUntilAuthenticated(3000);
+            }
+            
+            // Total: 80 filas (10mm aprox)
+            const totalRows = 80;
+            
+            await this.sendNiimbotPacket(0x23, [0x01]); // label type
+            await new Promise(r => setTimeout(r, 200));
+            await this.sendNiimbotPacket(0x21, [0x05]); // density max
+            await new Promise(r => setTimeout(r, 200));
+            await this.sendNiimbotPacket(0x01, [0x00]); // start print
+            await new Promise(r => setTimeout(r, 300));
+            await this.sendNiimbotPacket(0x03, [0x01]); // start page
+            await new Promise(r => setTimeout(r, 200));
+            // page size: height=80, copies=1, width=48 bytes
+            await this.sendNiimbotPacket(0x13, [0x00, totalRows, 0x01, 0x00, 0x30]);
+            await new Promise(r => setTimeout(r, 200));
+            
+            // Patrón: 10 filas NEGRO, 10 BLANCO, 10 NEGRO, ...
+            for (let i = 0; i < totalRows; i++) {
+                const isBlack = Math.floor(i / 10) % 2 === 0;
+                const rowData = new Uint8Array(48).fill(isBlack ? 0xFF : 0x00);
+                await this.sendNiimbotRow(i, Array.from(rowData));
+            }
+            
+            await new Promise(r => setTimeout(r, 300));
+            await this.sendNiimbotPacket(0xE3, [0x01]); // end page
+            await new Promise(r => setTimeout(r, 200));
+            await this.sendNiimbotPacket(0xF3, [0x01]); // end print
+
+            app.hideLoader();
+            app.showAlert("Test diagnóstico enviado. ¿Salieron barras negras?", "info");
+        } catch (e) {
+            console.error("Error en test NIIMBOT:", e);
+            app.hideLoader();
+            app.showAlert("Error: " + e.message, "error");
+        }
     },
 
     async printReceipt(saleData) {
@@ -333,66 +387,50 @@ const bluetoothPrinter = {
                 console.error("⚠️ El bitmap está en BLANCO. El canvas no generó contenido negro.");
             }
 
-            // 3. Secuencia de Comandos NIIMBOT B1 - Protocolo REAL v2.4
-            console.log("Iniciando secuencia NIIMBOT v2.4 (Protocolo B1 real)...");
+            // 3. Secuencia NIIMBOT v2.8 - Minimalista sin 0x03
+            console.log("Iniciando secuencia NIIMBOT v2.8 (Minimalista)...");
             
-            // Asegurar handshake confirmado
             const ready = await this.waitUntilAuthenticated(5000);
             if (!ready) {
-                // Handshake fallback
                 await this.sendNiimbotPacket(0x01, [0x01]);
                 await this.waitUntilAuthenticated(3000);
             }
 
-            // Paso 1: Set Label Type -> 0x23, data [0x01] = Gap/etiqueta
-            console.log("Paso 1: Set label type (0x23)...");
+            // Paso 1: Set Label Type
             await this.sendNiimbotPacket(0x23, [0x01]);
-            await new Promise(r => setTimeout(r, 200));
-            
-            // Paso 2: Set Density -> 0x21, data [density]
-            console.log("Paso 2: Set density (0x21)...");
-            await this.sendNiimbotPacket(0x21, [0x05]);
-            await new Promise(r => setTimeout(r, 200));
-            
-            // Paso 3: Start Print -> 0x01, data [0x00] (diferente al handshake que era [0x01])
-            console.log("Paso 3: Start print (0x01 data=[0x00])...");
-            await this.sendNiimbotPacket(0x01, [0x00]);
             await new Promise(r => setTimeout(r, 300));
             
-            // Paso 4: Start Page Print -> 0x03
-            console.log("Paso 4: Start page print (0x03)...");
-            await this.sendNiimbotPacket(0x03, [0x01]);
-            await new Promise(r => setTimeout(r, 200));
+            // Paso 2: Set Density
+            await this.sendNiimbotPacket(0x21, [0x05]);
+            await new Promise(r => setTimeout(r, 300));
             
-            // Paso 5: Set Page Size -> 0x13, [height_h, height_l, copies, width_bytes_h, width_bytes_l]
-            // height = 300 rows (240 imagen + 60 extra para expulsar etiqueta)
-            // copies = 1 = 0x01
-            // width_bytes = 384/8 = 48 bytes = 0x00, 0x30
-            console.log("Paso 5: Set page size (0x13), height=300...");
-            await this.sendNiimbotPacket(0x13, [0x01, 0x2C, 0x01, 0x00, 0x30]);
-            await new Promise(r => setTimeout(r, 200));
+            // Paso 3: Start Print (sin 0x03 esta vez)
+            await this.sendNiimbotPacket(0x01, [0x00]);
+            await new Promise(r => setTimeout(r, 500));
+            
+            // Paso 4: Set Page Size - formato [width_h, width_l, height_h, height_l]
+            // width = 48 bytes (384/8), height = 240 rows  
+            console.log("Paso 4: Set page size [width=48, height=240]...");
+            await this.sendNiimbotPacket(0x13, [0x00, 0x30, 0x00, 0xF0]);
+            await new Promise(r => setTimeout(r, 300));
 
-            // Paso 6: Send Rows con control de flujo ACK
-            console.log(`Paso 6: Enviando ${bitmap.length} filas con ACK flow control...`);
+            // Paso 5: Enviar filas (240 imagen + 60 padding)
+            console.log(`Paso 5: Enviando ${bitmap.length} filas...`);
             for (let i = 0; i < bitmap.length; i++) {
                 await this.sendNiimbotRow(i, Array.from(bitmap[i]));
             }
-
-            // Padding: 60 filas en blanco para expulsar la etiqueta
-            console.log("Paso 6b: Enviando 60 filas de padding para expulsar etiqueta...");
+            console.log("Paso 5b: 60 filas de padding...");
             const blankRow = new Uint8Array(48);
             for (let i = 0; i < 60; i++) {
                 await this.sendNiimbotRow(bitmap.length + i, Array.from(blankRow));
             }
+            await new Promise(r => setTimeout(r, 500));
+
+            // Paso 6: End Print -> probando 0xF0 como alternativa a 0xF3
+            console.log("Paso 6: End print (0xF0)...");
+            await this.sendNiimbotPacket(0xF0, [0x01]);
             await new Promise(r => setTimeout(r, 300));
-
-            // Paso 7: End Page Print -> 0xE3
-            console.log("Paso 7: End page print (0xE3)...");
-            await this.sendNiimbotPacket(0xE3, [0x01]);
-            await new Promise(r => setTimeout(r, 200));
-
-            // Paso 8: End Print -> 0xF3
-            console.log("Paso 8: End print (0xF3)...");
+            // También enviar 0xF3 por si acaso
             await this.sendNiimbotPacket(0xF3, [0x01]);
 
             app.hideLoader();
