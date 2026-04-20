@@ -133,7 +133,10 @@ const app = {
         'printer-modal',
         'register-open-modal',
         'register-close-modal',
-        'pos-expense-modal'
+        'pos-expense-modal',
+        'apartado-modal',
+        'apartado-details-modal',
+        'virtual-ticket-modal'
     ];
     
     let closed = false;

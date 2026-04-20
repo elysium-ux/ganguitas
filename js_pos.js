@@ -134,6 +134,14 @@ const posModule = {
         this.showView('movements');
         return;
     }
+
+    // DETECCIÓN DE APARTADOS (Códigos que inician con APT-)
+    if (q.toUpperCase().startsWith('APT-')) {
+        this.loadApartadoDetails(q.toUpperCase());
+        input.value = '';
+        this.showView('movements');
+        return;
+    }
     
     this.showView('search');
     // Búsqueda aproximada case-insensitive también para código de barras
@@ -250,6 +258,17 @@ const posModule = {
 
   async processSale() {
     if (this.cart.length === 0) return app.showAlert("Tu carrito está vacío", "warning");
+
+    // Lógica de Apartado
+    const isApartado = document.getElementById('pos-is-apartado').checked;
+    if (isApartado) {
+        if (!localStorage.getItem('isRegisterOpen')) {
+            return app.showAlert("⚠️ Debes realizar la APERTURA de caja antes de iniciar un apartado.", "warning");
+        }
+        this.showApartadoModal();
+        return;
+    }
+
     const method = document.getElementById('pos-method').value;
     const received = Number(document.getElementById('pos-cash-received').value) || 0;
     
@@ -277,10 +296,18 @@ const posModule = {
       // Impresión de ticket si aplica
       if (typeof bluetoothPrinter !== 'undefined' && bluetoothPrinter.autoPrint) {
         await bluetoothPrinter.printReceipt(saleData);
-      } else if (typeof bluetoothPrinter !== 'undefined' && bluetoothPrinter.isConnected) {
-        // Podríamos preguntar si quiere ticket o dejar el botón manual, 
-        // por ahora autoPrint manda. 
       }
+      
+      // MOSTRAR TICKET VIRTUAL TEMPORALMENTE
+      this.showVirtualTicketPreview({
+          title: "RECIBO DE VENTA",
+          id: res.ticketId,
+          customer: "Venta General",
+          items: this.cart,
+          total: this.currentTotal,
+          payment: this.currentTotal, // en venta regular es el total
+          balance: 0
+      });
 
       this.clearCart();
       dataManager.invalidateCache();
@@ -374,5 +401,216 @@ const posModule = {
         localStorage.removeItem('isRegisterOpen');
         this.loadCatalog(true);
     }
+  },
+
+  // --- NUEVAS FUNCIONES DE APARTADOS ---
+
+  showApartadoModal() {
+    if (!localStorage.getItem('isRegisterOpen')) {
+        return app.showAlert("⚠️ Debes realizar la APERTURA de caja antes de iniciar un apartado.", "warning");
+    }
+    document.getElementById('apt-total-display').innerText = `$${this.currentTotal.toFixed(2)}`;
+    document.getElementById('apt-customer-name').value = '';
+    
+    const phoneInput = document.getElementById('apt-customer-phone');
+    phoneInput.value = '';
+    // Máscara de teléfono xxx-xxx-xxxx
+    phoneInput.oninput = (e) => {
+        let x = e.target.value.replace(/\D/g, '').match(/(\d{0,3})(\d{0,3})(\d{0,4})/);
+        e.target.value = !x[2] ? x[1] : x[1] + '-' + x[2] + (x[3] ? '-' + x[3] : '');
+    };
+
+    document.getElementById('apt-initial-payment').value = '';
+    document.getElementById('apartado-modal').classList.remove('hidden');
+  },
+
+  async confirmApartado() {
+    const customer = document.getElementById('apt-customer-name').value.trim();
+    const whatsapp = document.getElementById('apt-customer-phone').value.trim();
+    const initialPayment = Number(document.getElementById('apt-initial-payment').value);
+    const method = document.getElementById('pos-method').value;
+
+    if (!customer || initialPayment === 0) {
+        return app.showAlert("Nombre y abono inicial son obligatorios", "warning");
+    }
+
+    const ticketId = "APT-" + Date.now();
+    const data = {
+        ticketId,
+        customer,
+        whatsapp,
+        total: this.currentTotal,
+        initialPayment,
+        method,
+        items: this.cart,
+        user: app.currentUser.userId
+    };
+
+    app.showLoader();
+    const res = await API.send("saveApartado", { data });
+    app.hideLoader();
+
+    if (res.success) {
+        app.showAlert("Apartado creado con éxito");
+        document.getElementById('apartado-modal').classList.add('hidden');
+        document.getElementById('pos-is-apartado').checked = false;
+        
+        // Impresión de ticket de apartado
+        if (typeof bluetoothPrinter !== 'undefined' && bluetoothPrinter.isConnected) {
+            await bluetoothPrinter.printApartadoTicket({
+                ...data,
+                paymentHistory: [{ fecha: new Date(), monto: initialPayment, metodo: method }]
+            });
+        }
+
+        // MOSTRAR TICKET VIRTUAL TEMPORALMENTE
+        this.showVirtualTicketPreview({
+            title: "TICKET DE APARTADO",
+            id: ticketId,
+            customer: customer,
+            phone: whatsapp,
+            items: this.cart,
+            total: this.currentTotal,
+            payment: initialPayment,
+            balance: this.currentTotal - initialPayment
+        });
+
+        this.clearCart();
+        this.loadCatalog(true);
+    } else {
+        app.showAlert(res.message, "error");
+    }
+  },
+
+  async loadApartadoDetails(ticketId) {
+    app.showLoader();
+    const res = await API.send("getApartadoDetails", { ticketId });
+    app.hideLoader();
+
+    if (res.success) {
+        this.currentApartado = res.apartado;
+        this.showApartadoDetailsModal(res.apartado, res.historial);
+    } else {
+        app.showAlert(res.message, "error");
+    }
+  },
+
+  showApartadoDetailsModal(apt, history) {
+    document.getElementById('apt-detail-id').innerText = apt.ticketId;
+    document.getElementById('apt-detail-customer').innerText = apt.cliente;
+    document.getElementById('apt-detail-phone').innerText = apt.whatsapp;
+    document.getElementById('apt-detail-total').innerText = `$${Number(apt.total).toFixed(2)}`;
+    document.getElementById('apt-detail-balance').innerText = `$${Number(apt.saldo).toFixed(2)}`;
+    
+    const tbody = document.getElementById('apt-payments-tbody');
+    tbody.innerHTML = '';
+    history.forEach(h => {
+        tbody.innerHTML += `<tr><td>${app.formatDateTime(h.fecha)}</td><td>$${h.monto}</td><td>${h.metodo}</td></tr>`;
+    });
+
+    const isLiquidated = apt.estado === "LIQUIDADO";
+    document.getElementById('apt-payment-section').classList.toggle('hidden', isLiquidated);
+    document.getElementById('apt-liquidated-msg').classList.toggle('hidden', !isLiquidated);
+    document.getElementById('apt-new-payment-amount').value = '';
+
+    document.getElementById('apartado-details-modal').classList.remove('hidden');
+  },
+
+  async addApartadoPayment() {
+    const amount = Number(document.getElementById('apt-new-payment-amount').value);
+    const method = document.getElementById('apt-new-payment-method').value;
+    const ticketId = this.currentApartado.ticketId;
+
+    if (amount <= 0) return app.showAlert("Monto inválido", "warning");
+
+    app.showLoader();
+    const res = await API.send("addApartadoPayment", { data: {
+        ticketId, amount, method, user: app.currentUser.userId
+    }});
+    app.hideLoader();
+
+    if (res.success) {
+        app.showAlert(res.isLiquidated ? "¡Apartado Liquidado!" : "Abono registrado");
+        
+        // Impresión de ticket de abono
+        if (typeof bluetoothPrinter !== 'undefined' && bluetoothPrinter.isConnected) {
+            await bluetoothPrinter.printApartadoTicket({
+                ticketId,
+                customer: res.apartado.cliente,
+                whatsapp: res.apartado.whatsapp,
+                total: res.apartado.total,
+                initialPayment: amount, // Pago actual
+                method: method,
+                items: res.apartado.articulos,
+                saldo: res.newSaldo
+            });
+        }
+
+        // MOSTRAR TICKET VIRTUAL TEMPORALMENTE
+        this.showVirtualTicketPreview({
+            title: "RECIBO DE ABONO",
+            id: ticketId,
+            customer: res.apartado.cliente,
+            phone: res.apartado.whatsapp,
+            items: res.apartado.articulos,
+            total: res.apartado.total,
+            payment: amount,
+            balance: res.newSaldo
+        });
+
+        document.getElementById('apartado-details-modal').classList.add('hidden');
+        this.loadCatalog(true);
+    } else {
+        app.showAlert(res.message, "error");
+    }
+  },
+
+  showVirtualTicketPreview(data) {
+      const modal = document.getElementById('virtual-ticket-modal');
+      const container = document.getElementById('virtual-ticket-content');
+      
+      let itemsHtml = data.items.map(it => `
+          <div style="display:flex; justify-content:space-between; font-size:0.8rem;">
+            <span>${it.qty}x ${it.name.substring(0,18)}</span>
+            <span>$${(it.qty * it.salePrice).toFixed(2)}</span>
+          </div>
+      `).join('');
+
+      container.innerHTML = `
+          <div style="text-align:center; font-family:monospace; color:#333; padding:10px; background:#fff; border:1px solid #ddd; border-radius:8px;">
+            <h3 style="margin:0;">GANGUITAS</h3>
+            <p style="font-size:0.7rem; margin:5px 0;">${data.title}</p>
+            <p style="font-size:0.7rem; margin:0;">${app.formatDateTime(new Date())}</p>
+            <hr style="border:none; border-top:1px dashed #ccc; margin:10px 0;">
+            <p style="font-size:0.75rem; text-align:left;">Folio: ${data.id}</p>
+            <p style="font-size:0.75rem; text-align:left;">Cliente: ${data.customer}</p>
+            ${data.phone ? `<p style="font-size:0.75rem; text-align:left;">WhatsApp: ${data.phone}</p>` : ''}
+            <hr style="border:none; border-top:1px dashed #ccc; margin:10px 0;">
+            ${itemsHtml}
+            <hr style="border:none; border-top:1px dashed #ccc; margin:10px 0;">
+            <div style="text-align:right; font-weight:bold; font-size:0.9rem;">
+                <div>TOTAL: $${Number(data.total).toFixed(2)}</div>
+                <div style="color:var(--primary);">ABONO/PAGO: $${Number(data.payment).toFixed(2)}</div>
+                <div style="color:var(--danger);">RESTA: $${Number(data.balance).toFixed(2)}</div>
+            </div>
+            <div style="margin-top:15px; display:flex; justify-content:center;">
+                <svg id="virtual-barcode"></svg>
+            </div>
+            <p style="font-size:0.6rem; margin-top:10px;">¡Gracias por tu compra!<br>Ganguitas - Elysium UX</p>
+          </div>
+      `;
+
+      modal.classList.remove('hidden');
+
+      // Generar código de barras en el SVG
+      setTimeout(() => {
+          JsBarcode("#virtual-barcode", data.id, {
+              format: "CODE128",
+              width: 1.5,
+              height: 40,
+              displayValue: true,
+              fontSize: 12
+          });
+      }, 100);
   }
 };

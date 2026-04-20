@@ -638,5 +638,67 @@ const bluetoothPrinter = {
 
     hideSettings() {
         document.getElementById('printer-modal').classList.add('hidden');
+    },
+
+    async printApartadoTicket(aptData) {
+        if (!this.isConnected) return;
+
+        try {
+            const barcode = String(aptData.ticketId);
+            const saldo = Number(aptData.saldo !== undefined ? aptData.saldo : (aptData.total - aptData.initialPayment));
+            
+            let ticket = [
+                ...this.commands.INIT,
+                ...this.commands.ALIGN_CENTER,
+                ...this.commands.BOLD_ON,
+                ...this.encodeText("TICKET DE APARTADO\n"),
+                ...this.encodeText("GANGUITAS\n"),
+                ...this.commands.BOLD_OFF,
+                ...this.encodeText("--------------------------------\n"),
+                ...this.commands.ALIGN_LEFT,
+                ...this.encodeText(`Ticket: ${barcode}\n`),
+                ...this.encodeText(`Fecha: ${app.formatDateTime(new Date())}\n`),
+                ...this.encodeText(`Cliente: ${aptData.customer}\n`),
+                ...this.encodeText(`Tel: ${aptData.whatsapp}\n`),
+                ...this.encodeText("--------------------------------\n"),
+                ...this.commands.BOLD_ON,
+                ...this.encodeText("Cant  Articulo          Total\n"),
+                ...this.commands.BOLD_OFF
+            ];
+
+            aptData.items.forEach(item => {
+                const name = item.name.substring(0, 18).padEnd(18, ' ');
+                const qty = String(item.qty).padStart(2, ' ');
+                const total = "$" + (item.qty * (item.salePrice || 0)).toFixed(2);
+                ticket.push(...this.encodeText(`${qty}    ${name} ${total.padStart(8, ' ')}\n`));
+            });
+
+            ticket.push(...[
+                ...this.encodeText("--------------------------------\n"),
+                ...this.commands.ALIGN_RIGHT,
+                ...this.commands.BOLD_ON,
+                ...this.encodeText(`TOTAL ARTICULOS: $${Number(aptData.total).toFixed(2)}\n`),
+                ...this.encodeText(`ABONO ACTUAL: $${Number(aptData.initialPayment).toFixed(2)}\n`),
+                ...this.encodeText(`SALDO RESTANTE: $${saldo.toFixed(2)}\n`),
+                ...this.commands.BOLD_OFF,
+                ...this.commands.ALIGN_CENTER,
+                ...this.encodeText("\nEscanee para abonar:\n"),
+                ...this.commands.BARCODE_WIDTH,
+                ...this.commands.BARCODE_HEIGHT,
+                ...this.commands.BARCODE_FONT_BELOW,
+                ...this.commands.BARCODE_PRINT_128,
+                barcode.length + 2,
+                0x7B, 0x42,
+                ...this.encodeText(barcode),
+                ...this.commands.LINE_FEED,
+                ...this.commands.FEED_6,
+                ...this.commands.CUT
+            ]);
+
+            await this.sendData(new Uint8Array(ticket));
+        } catch (e) {
+            console.error("Error al imprimir ticket de apartado:", e);
+            app.showAlert("Error de impresión", "error");
+        }
     }
 };

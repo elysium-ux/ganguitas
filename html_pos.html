@@ -36,6 +36,10 @@
             <strong id="pos-change-display" style="font-size: 1.2rem; color: var(--primary);">$0.00</strong>
         </div>
       </div>
+      <div style="display: flex; align-items: center; gap: 8px; margin-top: 1rem; padding: 0.5rem; background: rgba(var(--primary-rgb), 0.1); border-radius: 10px;">
+        <input type="checkbox" id="pos-is-apartado" style="width: 20px; height: 20px; cursor: pointer;">
+        <label for="pos-is-apartado" style="font-weight: bold; color: var(--primary); font-size: 0.9rem; cursor: pointer;">¿Es un Apartado?</label>
+      </div>
       <button class="btn success" style="margin-top: 1rem;" onclick="posModule.processSale()">Cobrar y Finalizar</button>
       <button class="btn danger" style="margin-top: 0.5rem; padding: 5px; font-size: 0.8rem;" onclick="posModule.clearCart()">Limpiar Carrito</button>
     </div>
@@ -212,5 +216,97 @@
     <p style="font-size: 0.7rem; color: var(--text-muted); margin-top: 1.5rem; text-align: center;">
         <i class="fas fa-info-circle"></i> Asegúrate de que la impresora esté encendida y visible.
     </p>
+  </div>
+</div>
+
+<!-- Modal para Crear Apartado -->
+<div id="apartado-modal" class="modal-overlay hidden">
+  <div class="modal-content" style="max-width: 400px;">
+    <div style="text-align: center; margin-bottom: 1rem;">
+        <i class="fas fa-hand-holding-usd" style="font-size: 3rem; color: var(--primary);"></i>
+        <h2 style="margin-top: 10px;">Nuevo Apartado</h2>
+    </div>
+    
+    <label>Nombre del Cliente</label>
+    <input type="text" id="apt-customer-name" placeholder="Ej. Maria Lopez">
+    
+    <label>WhatsApp</label>
+    <input type="tel" id="apt-customer-phone" placeholder="Ej. 1234567890">
+    
+    <div style="background: #f8f9fa; padding: 1rem; border-radius: 10px; margin: 1rem 0;">
+        <p style="margin: 0; font-size: 0.9rem;">Total a Apartar: <strong id="apt-total-display">$0.00</strong></p>
+    </div>
+
+    <label>Abono Inicial ($)</label>
+    <input type="number" id="apt-initial-payment" placeholder="0.00">
+
+    <div style="display: flex; gap: 10px; margin-top: 1.5rem;">
+        <button class="btn success" onclick="posModule.confirmApartado()">Crear Apartado</button>
+        <button class="btn" style="background: #ccc;" onclick="document.getElementById('apartado-modal').classList.add('hidden')">Cancelar</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal para Detalles/Abonos de Apartado -->
+<div id="apartado-details-modal" class="modal-overlay hidden">
+  <div class="modal-content" style="max-width: 500px;">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem; border-bottom: 2px solid var(--primary-light); padding-bottom: 10px;">
+        <h2 style="margin: 0; color: var(--primary);"><i class="fas fa-receipt"></i> Detalle de Apartado</h2>
+        <span id="apt-detail-id" style="font-size: 0.7rem; color: var(--text-muted);"></span>
+    </div>
+
+    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 1.5rem;">
+        <div class="info-card">
+            <label style="font-size: 0.7rem;">Cliente</label>
+            <div id="apt-detail-customer" style="font-weight: bold;"></div>
+        </div>
+        <div class="info-card">
+            <label style="font-size: 0.7rem;">WhatsApp</label>
+            <div id="apt-detail-phone"></div>
+        </div>
+        <div class="info-card" style="background: #e9ecef;">
+            <label style="font-size: 0.7rem;">Total</label>
+            <div id="apt-detail-total" style="font-weight: bold;"></div>
+        </div>
+        <div class="info-card" style="background: #fff3cd; color: #856404;">
+            <label style="font-size: 0.7rem;">Saldo Pendiente</label>
+            <div id="apt-detail-balance" style="font-weight: bold; font-size: 1.2rem;"></div>
+        </div>
+    </div>
+
+    <h4 style="margin-bottom: 10px;">Historial de Pagos</h4>
+    <div style="max-height: 150px; overflow-y: auto; background: #f8f9fa; border-radius: 10px; padding: 10px; margin-bottom: 1.5rem;">
+        <table style="width: 100%; font-size: 0.8rem;">
+            <thead><tr><th>Fecha</th><th>Monto</th><th>Metodo</th></tr></thead>
+            <tbody id="apt-payments-tbody"></tbody>
+        </table>
+    </div>
+
+    <div id="apt-payment-section">
+        <label>Registrar nuevo abono ($)</label>
+        <div style="display: flex; gap: 10px; align-items: center;">
+            <input type="number" id="apt-new-payment-amount" placeholder="0.00" style="flex: 1;">
+            <select id="apt-new-payment-method" style="width: 120px;">
+                <option value="Efectivo">Efectivo</option>
+                <option value="Tarjeta">Tarjeta</option>
+                <option value="Transferencia">Transferencia</option>
+            </select>
+        </div>
+        <button class="btn success" style="margin-top: 1rem; width: 100%;" onclick="posModule.addApartadoPayment()">Registrar Abono</button>
+    </div>
+    
+    <div id="apt-liquidated-msg" class="hidden" style="text-align: center; padding: 1rem; background: #d4edda; color: #155724; border-radius: 10px;">
+        <i class="fas fa-check-circle"></i> ESTE APARTADO YA HA SIDO LIQUIDADO
+    </div>
+
+    <button class="btn" style="background: #ccc; margin-top: 1rem; width: 100%;" onclick="document.getElementById('apartado-details-modal').classList.add('hidden')">Cerrar</button>
+  </div>
+</div>
+
+<!-- Modal para Ticket Virtual (Vista Previa) -->
+<div id="virtual-ticket-modal" class="modal-overlay hidden" style="z-index: 1100;">
+  <div class="modal-content" style="max-width: 350px; background: #eee; padding: 1.5rem;">
+    <div id="virtual-ticket-content"></div>
+    <button class="btn success" style="margin-top: 1rem;" onclick="document.getElementById('virtual-ticket-modal').classList.add('hidden')">Listo</button>
   </div>
 </div>
