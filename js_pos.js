@@ -29,6 +29,9 @@ const posModule = {
 
     // Sincronizar estado de caja con el backend
     this.syncRegisterStatus();
+
+    // Inicializar método de pago por defecto (Efectivo) para mostrar calculadora
+    this.setMainPaymentMethod('Efectivo');
   },
 
   async syncRegisterStatus() {
@@ -246,6 +249,22 @@ const posModule = {
     document.getElementById('pos-cash-received').value = '';
   },
 
+  setMainPaymentMethod(method) {
+    this.currentMainMethod = method;
+    const options = document.querySelectorAll('#pos-method-selector .payment-option');
+    options.forEach(opt => {
+        opt.classList.toggle('selected', opt.dataset.method === method);
+    });
+    
+    // Mostrar/Ocultar calculadora de cambio si es efectivo
+    const changeArea = document.getElementById('cash-change-area');
+    if (method === 'Efectivo') {
+        changeArea.classList.remove('hidden');
+    } else {
+        changeArea.classList.add('hidden');
+    }
+  },
+
   calculateChange() {
     const received = Number(document.getElementById('pos-cash-received').value) || 0;
     const change = received - this.currentTotal;
@@ -269,7 +288,7 @@ const posModule = {
         return;
     }
 
-    const method = document.getElementById('pos-method').value;
+    const method = this.currentMainMethod || 'Efectivo';
     const received = Number(document.getElementById('pos-cash-received').value) || 0;
     
     if (method === 'Efectivo' && received < this.currentTotal) {
@@ -421,14 +440,48 @@ const posModule = {
     };
 
     document.getElementById('apt-initial-payment').value = '';
+    this.currentAptMethod = 'Efectivo';
+    this.setAptPaymentMethod('Efectivo');
+    
+    document.getElementById('apt-cash-received').value = '';
+    document.getElementById('apt-change-display').innerText = '$0.00';
+
     document.getElementById('apartado-modal').classList.remove('hidden');
   },
 
+  calculateAptChange() {
+    const payment = Number(document.getElementById('apt-initial-payment').value) || 0;
+    const received = Number(document.getElementById('apt-cash-received').value) || 0;
+    const display = document.getElementById('apt-change-display');
+    const changeArea = document.getElementById('apt-cash-change-area');
+
+    if (this.currentAptMethod === 'Efectivo') {
+        changeArea.classList.remove('hidden');
+        const change = received - payment;
+        display.innerText = `$${(change > 0 ? change : 0).toFixed(2)}`;
+    } else {
+        changeArea.classList.add('hidden');
+    }
+  },
+
+  setAptPaymentMethod(method) {
+    this.currentAptMethod = method;
+    const options = document.querySelectorAll('#apt-method-selector .payment-option');
+    options.forEach(opt => {
+        opt.classList.toggle('selected', opt.dataset.method === method);
+    });
+    this.calculateAptChange(); // Actualizar visibilidad de calculadora
+  },
+
   async confirmApartado() {
+    if (!localStorage.getItem('isRegisterOpen')) {
+        return app.showAlert("⚠️ Debes realizar la APERTURA de caja antes de iniciar un apartado.", "warning");
+    }
+
     const customer = document.getElementById('apt-customer-name').value.trim();
     const whatsapp = document.getElementById('apt-customer-phone').value.trim();
     const initialPayment = Number(document.getElementById('apt-initial-payment').value);
-    const method = document.getElementById('pos-method').value;
+    const method = this.currentAptMethod || 'Efectivo';
 
     if (!customer || initialPayment === 0) {
         return app.showAlert("Nombre y abono inicial son obligatorios", "warning");

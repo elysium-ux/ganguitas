@@ -23,11 +23,20 @@
         <span>Total:</span> <span id="cart-total">$0.00</span>
       </div>
       <label style="color: var(--text-muted); font-size: 0.8rem;">Método de pago:</label>
-      <select id="pos-method" onchange="posModule.updateCart()">
-        <option value="Efectivo">Efectivo</option>
-        <option value="Tarjeta">Tarjeta</option>
-        <option value="Transferencia">Transferencia</option>
-      </select>
+      <div class="payment-selector" id="pos-method-selector">
+          <div class="payment-option selected" data-method="Efectivo" onclick="posModule.setMainPaymentMethod('Efectivo')">
+              <i class="fas fa-money-bill-wave"></i>
+              <span>Efectivo</span>
+          </div>
+          <div class="payment-option" data-method="Tarjeta" onclick="posModule.setMainPaymentMethod('Tarjeta')">
+              <i class="fas fa-credit-card"></i>
+              <span>Tarjeta</span>
+          </div>
+          <div class="payment-option" data-method="Transferencia" onclick="posModule.setMainPaymentMethod('Transferencia')">
+              <i class="fas fa-mobile-alt"></i>
+              <span>Transf.</span>
+          </div>
+      </div>
       <div id="cash-change-area" class="hidden" style="margin-top: 1rem; padding: 1rem; background: rgba(255,182,193,0.1); border-radius: 12px; border: 1px dashed var(--primary);">
         <label style="font-size: 0.8rem;">Efectivo Recibido ($)</label>
         <input type="number" id="pos-cash-received" oninput="posModule.calculateChange()">
@@ -233,12 +242,37 @@
     <label>WhatsApp</label>
     <input type="tel" id="apt-customer-phone" placeholder="Ej. 1234567890">
     
-    <div style="background: #f8f9fa; padding: 1rem; border-radius: 10px; margin: 1rem 0;">
-        <p style="margin: 0; font-size: 0.9rem;">Total a Apartar: <strong id="apt-total-display">$0.00</strong></p>
+    <div style="background: #fdf4f8; padding: 1rem; border-radius: 15px; margin: 1rem 0; border: 1px dashed var(--primary);">
+        <p style="margin: 0; font-size: 0.9rem; color: var(--text-main);">Total a Apartar: <strong id="apt-total-display" style="font-size: 1.2rem;">$0.00</strong></p>
     </div>
 
-    <label>Abono Inicial ($)</label>
-    <input type="number" id="apt-initial-payment" placeholder="0.00">
+    <label style="font-size: 0.8rem; margin-top: 1rem;">Método del primer abono:</label>
+    <div class="payment-selector" id="apt-method-selector">
+        <div class="payment-option selected" data-method="Efectivo" onclick="posModule.setAptPaymentMethod('Efectivo')">
+            <i class="fas fa-money-bill-wave"></i>
+            <span>Efectivo</span>
+        </div>
+        <div class="payment-option" data-method="Tarjeta" onclick="posModule.setAptPaymentMethod('Tarjeta')">
+            <i class="fas fa-credit-card"></i>
+            <span>Tarjeta</span>
+        </div>
+        <div class="payment-option" data-method="Transferencia" onclick="posModule.setAptPaymentMethod('Transferencia')">
+            <i class="fas fa-mobile-alt"></i>
+            <span>Transf.</span>
+        </div>
+    </div>
+
+    <label style="font-size: 0.8rem;">Monto del Abono Inicial ($)</label>
+    <input type="number" id="apt-initial-payment" placeholder="0.00" style="font-size: 1.5rem; text-align: center; font-weight: bold; padding: 15px;" oninput="posModule.calculateAptChange()">
+
+    <div id="apt-cash-change-area" class="hidden" style="margin-top: 1rem; padding: 1rem; background: rgba(255,182,193,0.1); border-radius: 12px; border: 1px dashed var(--primary);">
+        <label style="font-size: 0.8rem;">Efectivo Recibido ($)</label>
+        <input type="number" id="apt-cash-received" oninput="posModule.calculateAptChange()">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 5px;">
+            <span style="font-size: 0.8rem;">Cambio:</span>
+            <strong id="apt-change-display" style="font-size: 1.2rem; color: var(--primary);">$0.00</strong>
+        </div>
+    </div>
 
     <div style="display: flex; gap: 10px; margin-top: 1.5rem;">
         <button class="btn success" onclick="posModule.confirmApartado()">Crear Apartado</button>
