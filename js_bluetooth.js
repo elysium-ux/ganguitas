@@ -434,15 +434,15 @@ const bluetoothPrinter = {
 
             // 1. Tipo de etiqueta
             await this.sendNiimbotPacket(0x23, [0x01]);
-            await new Promise(r => setTimeout(r, 20));
+            await new Promise(r => setTimeout(r, 50));
             // 2. Densidad
             await this.sendNiimbotPacket(0x21, [0x05]); // max density
-            await new Promise(r => setTimeout(r, 20));
+            await new Promise(r => setTimeout(r, 50));
             
             // 3. PrintStart7b (B1 model requires 7 bytes: pages(2), 0, 0, 0, 0, color)
             // 1 page = [0x00, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00]
             await this.sendNiimbotPacket(0x01, [0x00, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00]);
-            await new Promise(r => setTimeout(r, 20));
+            await new Promise(r => setTimeout(r, 50));
 
             // 4. Limpiar buffer (PrintClear) al principio antes de iniciar la página
             await this.sendNiimbotPacket(0x20, [0x01]);
@@ -450,14 +450,14 @@ const bluetoothPrinter = {
 
             // 5. Iniciar página
             await this.sendNiimbotPacket(0x03, [0x01]);
-            await new Promise(r => setTimeout(r, 20));
+            await new Promise(r => setTimeout(r, 50));
 
             // 6. Configurar Tamaño SetPageSize6b (B1 requires 6 bytes)
             // [row_high, row_low, col_high, col_low, copies_high, copies_low]
             // Altura = 240 (0x00, 0xF0). Ancho = 384 (0x01, 0x80). Copias = 1 (0x00, 0x01).
             const TOTAL_ROWS = 240;
             await this.sendNiimbotPacket(0x13, [0x00, TOTAL_ROWS, 0x01, 0x80, 0x00, 0x01]);
-            await new Promise(r => setTimeout(r, 20));
+            await new Promise(r => setTimeout(r, 50));
 
             // 7. Enviar filas con 0x85 (PrintBitmapRow) no indizadas
             // Formato de data de 0x85: [pos_high, pos_low, count1, count2, count3, repeat, ...48 bytes data]
@@ -485,14 +485,14 @@ const bluetoothPrinter = {
                     ...rowData
                 ];
 
-                await this.sendNiimbotPacket(0x85, payload, 5); // Delay reducido a 5ms para datos
+                await this.sendNiimbotPacket(0x85, payload, 10); // Aumentado a 10ms para evitar buffer overflow
             }
-            await new Promise(r => setTimeout(r, 100));
+            await new Promise(r => setTimeout(r, 200));
             // 8. PageEnd
             await this.sendNiimbotPacket(0xE3, [0x01]);
-            await new Promise(r => setTimeout(r, 100));
-            console.log("⏳ Esperando unos milisegundos para procesar etiqueta...");
-            await new Promise(r => setTimeout(r, 500));
+            await new Promise(r => setTimeout(r, 200));
+            console.log("⏳ Esperando procesamiento de etiqueta...");
+            await new Promise(r => setTimeout(r, 2000));
             
             // 9. PrintEnd
             await this.sendNiimbotPacket(0xF3, [0x01]);
