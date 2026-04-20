@@ -10,7 +10,7 @@ const app = {
     const hasConfig = API.URL && API.KEY;
     
     if (!hasConfig) {
-      this.switchView('setup');
+      this.switchView('setup', true); // replaceState
       return;
     }
 
@@ -19,9 +19,33 @@ const app = {
     const savedUser = localStorage.getItem('elysium_user');
     if (savedRole && savedUser) {
       this.applyPermissions(savedRole, savedUser);
+      // Intentar reconectar impresora si estaba el rol de Cajero o Admin
+      if (savedRole === 'Cajero' || savedRole === 'Admin') {
+          setTimeout(() => {
+              if (typeof bluetoothPrinter !== 'undefined') bluetoothPrinter.connect(true);
+          }, 2000);
+      }
     } else {
-      this.switchView('login');
+      this.switchView('login', true); // replaceState
     }
+
+    // Listener para el botón atrás del celular
+    window.addEventListener('popstate', (e) => {
+      // Prioridad: Cerrar modales si hay alguno abierto
+      if (this.closeActiveModals()) {
+        // Si cerramos un modal, debemos re-empujar el estado para que 
+        // el siguiente "atrás" no nos saque de la vista actual de golpe
+        // si el usuario esperaba que el "atrás" solo cerrara el modal.
+        // Pero popstate ya consumió un paso. 
+        // Mejor: Si había un modal, lo cerramos y volvemos a poner el hash actual.
+        history.pushState({ view: this.currentView }, "", "#" + this.currentView);
+        return;
+      }
+
+      if (e.state && e.state.view) {
+        this.switchView(e.state.view, false, true);
+      }
+    });
   },
 
   async injectViews() {
@@ -51,7 +75,11 @@ const app = {
     document.getElementById('loader').classList.add('hidden');
   },
 
-  switchView(viewId) {
+  currentView: null,
+
+  switchView(viewId, replace = false, fromPopState = false) {
+    if (this.currentView === viewId) return;
+
     document.querySelectorAll('.view').forEach(v => {
       v.classList.remove('active');
       v.classList.add('hidden');
@@ -79,10 +107,50 @@ const app = {
       document.getElementById('top-nav').classList.remove('hidden');
     }
 
+    // Actualizar historial si no viene de popstate
+    if (!fromPopState) {
+        if (replace || viewId === 'login') {
+            history.replaceState({ view: viewId }, "", "#" + viewId);
+        } else {
+            history.pushState({ view: viewId }, "", "#" + viewId);
+        }
+    }
+    this.currentView = viewId;
+
     if (viewId === 'inventory' && typeof inventoryModule !== 'undefined') inventoryModule.loadInventory(false);
     if (viewId === 'add-item' && typeof addItemModule !== 'undefined') addItemModule.loadRecentItems();
     if (viewId === 'financials' && typeof financialsModule !== 'undefined') financialsModule.loadSummary();
     if (viewId === 'pos' && typeof posModule !== 'undefined') posModule.loadCatalog(false);
+  },
+
+  /**
+   * Cierra modales activos. Retorna true si se cerró alguno.
+   */
+  closeActiveModals() {
+    const modals = [
+        'scanner-modal',
+        'logout-modal',
+        'printer-modal',
+        'register-open-modal',
+        'register-close-modal',
+        'pos-expense-modal'
+    ];
+    
+    let closed = false;
+    modals.forEach(id => {
+        const m = document.getElementById(id);
+        if (m && !m.classList.contains('hidden')) {
+            m.classList.add('hidden');
+            closed = true;
+            
+            // Especiales para liberar recursos
+            if (id === 'scanner-modal' && typeof scannerModule !== 'undefined') {
+                scannerModule.stopScanner();
+            }
+        }
+    });
+
+    return closed;
   },
 
   logout() {

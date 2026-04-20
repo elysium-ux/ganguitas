@@ -11,6 +11,7 @@ const bluetoothPrinter = {
     printerModel: localStorage.getItem('printer_model') || 'generic', // 'generic' o 'niimbot'
     isAuthenticated: false,
     pendingRowAck: null, // Control de flujo: resolve() al recibir ACK de fila
+    reconnectInterval: null,
 
     // UUIDs NIIMBOT
     NIIMBOT_SERVICE: 'e7810a71-73ae-499d-8c15-faa9aef0c3f2',
@@ -34,9 +35,9 @@ const bluetoothPrinter = {
         BARCODE_PRINT_128: [0x1D, 0x6B, 0x49]  // CODE128 (Format B/C auto usually)
     },
 
-    async connect() {
+    async connect(silent = false) {
         try {
-            console.log("Solicitando dispositivo Bluetooth...");
+            console.log(silent ? "Intentando reconexión silenciosa..." : "Solicitando dispositivo Bluetooth...");
             
             const filters = this.printerModel === 'niimbot' ? [
                 { services: [this.NIIMBOT_SERVICE] },
@@ -52,10 +53,22 @@ const bluetoothPrinter = {
 
             const optionalServices = this.printerModel === 'niimbot' ? [this.NIIMBOT_SERVICE] : ['000018f0-0000-1000-8000-00805f9b34fb'];
 
-            this.device = await navigator.bluetooth.requestDevice({
-                filters: filters,
-                optionalServices: optionalServices
-            });
+            // Si es silencioso y ya tenemos dispositivo o podemos obtenerlo
+            if (silent && !this.device && navigator.bluetooth.getDevices) {
+                const devices = await navigator.bluetooth.getDevices();
+                if (devices.length > 0) {
+                    // Buscar uno que coincida con nuestros filtros o el último usado
+                    this.device = devices[0]; 
+                }
+            }
+
+            if (!this.device) {
+                if (silent) return false;
+                this.device = await navigator.bluetooth.requestDevice({
+                    filters: filters,
+                    optionalServices: optionalServices
+                });
+            }
 
             console.log("Conectando al servidor GATT...");
             this.device.addEventListener('gattserverdisconnected', () => this.onDisconnected());
@@ -91,42 +104,65 @@ const bluetoothPrinter = {
                 console.log("Iniciando Handshake de autenticación (0x01)...");
                 await this.sendNiimbotPacket(0x01, [0x01]);
                 
-                // ESPERA REAL: Bloquear hasta que isAuthenticated sea true
-                const authOk = await this.waitUntilAuthenticated(8000);
+                const authOk = await this.waitUntilAuthenticated( silent ? 3000 : 8000);
                 
                 if (authOk) {
                     console.log("¡Handshake exitoso! Pidiendo batería...");
                     this.sendNiimbotPacket(0x06, [0x01]);
-                } else {
-                    console.warn("Handshake no confirmado tras espera. Reintente si falla.");
                 }
             }
 
-            app.showAlert("Impresora conectada correctamente", "success");
+            if (!silent) app.showAlert("Impresora conectada correctamente", "success");
+            
+            // Iniciar monitoreo de salud de conexión
+            this.startHeartbeat();
+            
             return true;
         } catch (error) {
             console.error("Error de conexión Bluetooth:", error);
-            app.showAlert("Error: " + error.message, "error");
+            if (!silent) app.showAlert("Error: " + error.message, "error");
+            this.isConnected = false;
+            this.updateUI();
             return false;
         }
     },
 
     onDisconnected() {
+        console.warn("Bluetooth Disconnected.");
         this.isConnected = false;
         this.isAuthenticated = false;
-        this.device = null;
+        // No limpiamos this.device para permitir reconexión silenciosa
         this.server = null;
         this.characteristic = null;
         this.updateUI();
-        app.showAlert("Impresora desconectada", "warning");
+        
+        // Intentar reconectar automáticamente si no fue una desconexión manual
+        if (!this.manualDisconnect) {
+            console.log("Intentando reconexión automática en 3 segundos...");
+            setTimeout(() => this.connect(true), 3000);
+        }
     },
 
     async disconnect() {
+        this.manualDisconnect = true;
         if (this.device && this.device.gatt.connected) {
             this.device.gatt.disconnect();
         }
+        clearInterval(this.reconnectInterval);
         this.isAuthenticated = false;
         this.isConnected = false;
+        this.updateUI();
+        setTimeout(() => this.manualDisconnect = false, 1000);
+    },
+
+    startHeartbeat() {
+        if (this.reconnectInterval) clearInterval(this.reconnectInterval);
+        this.reconnectInterval = setInterval(() => {
+            if (this.device && !this.device.gatt.connected && !this.manualDisconnect) {
+                console.log("Corazón Bluetooth detenido. Intentando revivir...");
+                this.connect(true);
+            }
+        }, 10000); // Cada 10 segundos verificar salud
     },
 
     async waitUntilAuthenticated(timeoutMs = 10000) {
