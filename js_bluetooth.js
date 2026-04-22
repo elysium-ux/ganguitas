@@ -29,16 +29,17 @@ const bluetoothPrinter = {
         FEED_6: [0x1B, 0x64, 0x06],
         LINE_FEED: [0x0A],
         // Barcode commands
-        BARCODE_WIDTH: [0x1D, 0x77, 0x02], // Default width 2
+        BARCODE_WIDTH: [0x1D, 0x77, 0x03], // Default width 3 (más nítido)
         BARCODE_HEIGHT: [0x1D, 0x68, 0x64], // Default height 100 dots
         BARCODE_FONT_BELOW: [0x1D, 0x48, 0x02], // HRI font below barcode
-        BARCODE_PRINT_128: [0x1D, 0x6B, 0x49]  // CODE128 (Format B/C auto usually)
+        BARCODE_PRINT_128: [0x1D, 0x6B, 0x49], // CODE128 (Format B/C auto usually)
+        OPEN_DRAWER: [0x1B, 0x70, 0x00, 0x19, 0xFA] // Kick pin 2 (standard Drawer)
     },
 
     async connect(silent = false) {
         try {
             console.log(silent ? "Intentando reconexión silenciosa..." : "Solicitando dispositivo Bluetooth...");
-            
+
             const filters = this.printerModel === 'niimbot' ? [
                 { services: [this.NIIMBOT_SERVICE] },
                 { namePrefix: 'B' }, // NIIMBOT B1, B21, etc
@@ -48,26 +49,37 @@ const bluetoothPrinter = {
                 { namePrefix: 'TP' },
                 { namePrefix: 'MPT' },
                 { namePrefix: 'Printer' },
-                { namePrefix: 'MTP' }
+                { namePrefix: 'MTP' },
+                { namePrefix: 'EEGVUY' }
             ];
 
             const optionalServices = this.printerModel === 'niimbot' ? [this.NIIMBOT_SERVICE] : ['000018f0-0000-1000-8000-00805f9b34fb'];
 
+            const savedModel = localStorage.getItem('printer_model');
+            if (savedModel) this.printerModel = savedModel;
+
             // Si es silencioso y ya tenemos dispositivo o podemos obtenerlo
-            if (silent && !this.device && navigator.bluetooth.getDevices) {
+            if (silent && !this.device && navigator.bluetooth && navigator.bluetooth.getDevices) {
                 const devices = await navigator.bluetooth.getDevices();
                 if (devices.length > 0) {
                     // Buscar uno que coincida con nuestros filtros o el último usado
-                    this.device = devices[0]; 
+                    this.device = devices[0];
+                    console.log("Dispositivo encontrado en caché:", this.device.name);
                 }
             }
 
             if (!this.device) {
                 if (silent) return false;
+                this.isReconnecting = false;
                 this.device = await navigator.bluetooth.requestDevice({
                     filters: filters,
                     optionalServices: optionalServices
                 });
+            }
+
+            if (silent) {
+                this.isReconnecting = true;
+                this.updateUI();
             }
 
             console.log("Conectando al servidor GATT...");
@@ -77,7 +89,7 @@ const bluetoothPrinter = {
             console.log("Obteniendo servicio primario...");
             const serviceUUID = this.printerModel === 'niimbot' ? this.NIIMBOT_SERVICE : '000018f0-0000-1000-8000-00805f9b34fb';
             const service = await this.server.getPrimaryService(serviceUUID);
-            
+
             console.log("Obteniendo característica...");
             const characteristics = await service.getCharacteristics();
             this.characteristic = characteristics.find(c => c.properties.write || c.properties.writeWithoutResponse);
@@ -97,15 +109,16 @@ const bluetoothPrinter = {
             }
 
             this.isConnected = true;
+            this.isReconnecting = false;
             this.isAuthenticated = false; // Resetear hasta recibir ACK 0x01
             this.updateUI();
-            
+
             if (this.printerModel === 'niimbot') {
                 console.log("Iniciando Handshake de autenticación (0x01)...");
                 await this.sendNiimbotPacket(0x01, [0x01]);
-                
-                const authOk = await this.waitUntilAuthenticated( silent ? 3000 : 8000);
-                
+
+                const authOk = await this.waitUntilAuthenticated(silent ? 3000 : 8000);
+
                 if (authOk) {
                     console.log("¡Handshake exitoso! Pidiendo batería...");
                     this.sendNiimbotPacket(0x06, [0x01]);
@@ -113,15 +126,16 @@ const bluetoothPrinter = {
             }
 
             if (!silent) app.showAlert("Impresora conectada correctamente", "success");
-            
+
             // Iniciar monitoreo de salud de conexión
             this.startHeartbeat();
-            
+
             return true;
         } catch (error) {
             console.error("Error de conexión Bluetooth:", error);
             if (!silent) app.showAlert("Error: " + error.message, "error");
             this.isConnected = false;
+            this.isReconnecting = false;
             this.updateUI();
             return false;
         }
@@ -135,7 +149,7 @@ const bluetoothPrinter = {
         this.server = null;
         this.characteristic = null;
         this.updateUI();
-        
+
         // Intentar reconectar automáticamente si no fue una desconexión manual
         if (!this.manualDisconnect) {
             console.log("Intentando reconexión automática en 3 segundos...");
@@ -176,7 +190,7 @@ const bluetoothPrinter = {
 
     async printTest() {
         if (!this.isConnected) return app.showAlert("Conecta la impresora primero", "warning");
-        
+
         if (this.printerModel === 'niimbot') {
             return this.printNiimbotDiagnosticTest();
         }
@@ -207,16 +221,16 @@ const bluetoothPrinter = {
         try {
             app.showLoader();
             console.log("🔬 Iniciando test diagnóstico NIIMBOT (barras sólidas)...");
-            
+
             const ready = await this.waitUntilAuthenticated(5000);
             if (!ready) {
                 await this.sendNiimbotPacket(0x01, [0x01]);
                 await this.waitUntilAuthenticated(3000);
             }
-            
+
             // Total: 80 filas (10mm aprox)
             const totalRows = 80;
-            
+
             await this.sendNiimbotPacket(0x23, [0x01]); // label type
             await new Promise(r => setTimeout(r, 200));
             await this.sendNiimbotPacket(0x21, [0x05]); // density max
@@ -228,14 +242,14 @@ const bluetoothPrinter = {
             // page size: height=80, copies=1, width=48 bytes
             await this.sendNiimbotPacket(0x13, [0x00, totalRows, 0x01, 0x00, 0x30]);
             await new Promise(r => setTimeout(r, 200));
-            
+
             // Patrón: 10 filas NEGRO, 10 BLANCO, 10 NEGRO, ...
             for (let i = 0; i < totalRows; i++) {
                 const isBlack = Math.floor(i / 10) % 2 === 0;
                 const rowData = new Uint8Array(48).fill(isBlack ? 0xFF : 0x00);
                 await this.sendNiimbotRow(i, Array.from(rowData));
             }
-            
+
             await new Promise(r => setTimeout(r, 300));
             await this.sendNiimbotPacket(0xE3, [0x01]); // end page
             await new Promise(r => setTimeout(r, 200));
@@ -257,18 +271,26 @@ const bluetoothPrinter = {
         }
 
         try {
+            const barcode = String(saleData.ticketId || "000000000000");
+            const isCash = (saleData.method === 'Efectivo');
+
             let receipt = [
                 ...this.commands.INIT,
+                ...(isCash ? this.commands.OPEN_DRAWER : []),
+                ...this.commands.LINE_FEED,
+                ...this.commands.LINE_FEED,
                 ...this.commands.ALIGN_CENTER,
                 ...this.commands.BOLD_ON,
                 ...this.encodeText("GANGUITAS\n"),
                 ...this.commands.BOLD_OFF,
-                ...this.encodeText("Ticket de Venta\n"),
+                ...this.encodeText("RECIBO DE VENTA\n"),
+                ...this.encodeText(app.formatDateTime(new Date()) + "\n"),
                 ...this.encodeText("--------------------------------\n"),
                 ...this.commands.ALIGN_LEFT,
-                ...this.encodeText("Fecha: " + app.formatDateTime(new Date()) + "\n"),
-                ...this.encodeText("Atendió: " + app.currentUser.userId + "\n"),
-                ...this.encodeText("Metodo: " + saleData.method + "\n"),
+                ...this.encodeText("Folio: " + (saleData.ticketId || "---") + "\n"),
+                ...this.encodeText("Cliente: Venta General\n"),
+                ...this.encodeText("Atendio: " + app.currentUser.userId + "\n"),
+                ...this.encodeText("Metodo: " + (saleData.method || "Efectivo") + "\n"),
                 ...this.encodeText("--------------------------------\n"),
                 ...this.commands.BOLD_ON,
                 ...this.encodeText("Cant  Articulo          Total\n"),
@@ -286,11 +308,21 @@ const bluetoothPrinter = {
                 ...this.encodeText("--------------------------------\n"),
                 ...this.commands.ALIGN_RIGHT,
                 ...this.commands.BOLD_ON,
-                ...this.encodeText("TOTAL: $" + saleData.total.toFixed(2) + "\n"),
+                ...this.encodeText("TOTAL: $" + Number(saleData.total).toFixed(2) + "\n"),
                 ...this.commands.BOLD_OFF,
                 ...this.commands.ALIGN_CENTER,
-                ...this.encodeText("\n¡Gracias por su compra!\n"),
-                ...this.encodeText("Vuelva pronto\n"),
+                ...this.encodeText("\nGracias por su compra\n"),
+                ...this.encodeText("Ganguitas diseñado por\n"),
+                ...this.encodeText("www.Elysium-ie.com\n"),
+                ...this.commands.LINE_FEED,
+                ...this.commands.BARCODE_WIDTH,
+                ...this.commands.BARCODE_HEIGHT,
+                ...this.commands.BARCODE_FONT_BELOW,
+                ...this.commands.BARCODE_PRINT_128,
+                barcode.length + 2,
+                0x7B, 0x42,
+                ...this.encodeText(barcode),
+                ...this.commands.LINE_FEED,
                 ...this.commands.FEED_6,
                 ...this.commands.CUT
             ]);
@@ -343,12 +375,12 @@ const bluetoothPrinter = {
     },
 
     // --- LOGICA ESPECIFICA NIIMBOT ---
-    
+
     async printNiimbotLabel(product) {
         try {
             app.showLoader();
             // 1. Crear Canvas (384px @ 203 DPI = 48mm reales del cabezal de la B1)
-            const width = 384; 
+            const width = 384;
             const height = 240; // 30mm aprox
             const canvas = document.createElement('canvas');
             canvas.width = width;
@@ -358,7 +390,7 @@ const bluetoothPrinter = {
             // Fondo blanco
             ctx.fillStyle = 'white';
             ctx.fillRect(0, 0, width, height);
-            
+
             // Borde negro garantizado (diagnóstico visual)
             ctx.fillStyle = 'black';
             ctx.fillRect(0, 0, width, 8);    // Borde superior
@@ -408,7 +440,7 @@ const bluetoothPrinter = {
                     const g = imageData[idx + 1];
                     const b = imageData[idx + 2];
                     const avg = (r + g + b) / 3;
-                    
+
                     if (avg < 128) { // Negro
                         row[Math.floor(x / 8)] |= (0x80 >> (x % 8));
                     }
@@ -416,7 +448,7 @@ const bluetoothPrinter = {
                 nonZeroBytes += row.filter(b => b > 0).length;
                 bitmap.push(row);
             }
-            
+
             // Diagnóstico: si el bitmap está vacío, alertar
             console.log(`📊 Bitmap: ${bitmap.length} filas, ${nonZeroBytes} bytes con datos (esperado > 0)`);
             if (nonZeroBytes === 0) {
@@ -438,7 +470,7 @@ const bluetoothPrinter = {
             // 2. Densidad
             await this.sendNiimbotPacket(0x21, [0x05]); // max density
             await new Promise(r => setTimeout(r, 50));
-            
+
             // 3. PrintStart7b (B1 model requires 7 bytes: pages(2), 0, 0, 0, 0, color)
             // 1 page = [0x00, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00]
             await this.sendNiimbotPacket(0x01, [0x00, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00]);
@@ -464,23 +496,23 @@ const bluetoothPrinter = {
             console.log(`📤 Enviando ${TOTAL_ROWS} filas 0xFF (Protocolo 0x85 no comprimido)...`);
             for (let i = 0; i < TOTAL_ROWS; i++) {
                 const rowData = Array.from(bitmap[i]); // Usa el bitmap real dibujado en el Canvas
-                
+
                 // Calcular partes (pixels negros por cada chunk de 16 bytes)
                 let parts = [0, 0, 0];
-                for(let b = 0; b < 48; b++) {
+                for (let b = 0; b < 48; b++) {
                     const val = rowData[b];
                     if (val === 0) continue; // Optimización de conteo
                     const chunkIdx = Math.floor(b / 16);
-                    for(let bit = 0; bit < 8; bit++) {
-                        if(val & (1 << bit)) {
+                    for (let bit = 0; bit < 8; bit++) {
+                        if (val & (1 << bit)) {
                             parts[chunkIdx]++;
                         }
                     }
                 }
 
                 const payload = [
-                    (i >> 8) & 0xFF, i & 0xFF, 
-                    parts[0], parts[1], parts[2], 
+                    (i >> 8) & 0xFF, i & 0xFF,
+                    parts[0], parts[1], parts[2],
                     1, // repeats = 1
                     ...rowData
                 ];
@@ -493,7 +525,7 @@ const bluetoothPrinter = {
             await new Promise(r => setTimeout(r, 200));
             console.log("⏳ Esperando procesamiento de etiqueta...");
             await new Promise(r => setTimeout(r, 2000));
-            
+
             // 9. PrintEnd
             await this.sendNiimbotPacket(0xF3, [0x01]);
 
@@ -509,7 +541,7 @@ const bluetoothPrinter = {
     async sendNiimbotPacket(cmd, data = [], delayOverride = 15) {
         const len = data.length;
         let packet = [0x55, 0x55, cmd, len, ...data];
-        
+
         let cs = cmd ^ len;
         for (let b of data) cs ^= b;
         packet.push(cs);
@@ -527,7 +559,7 @@ const bluetoothPrinter = {
             console.warn("Write error, fallback to withoutResponse:", e);
             await this.characteristic.writeValueWithoutResponse(new Uint8Array(packet));
         }
-        
+
         await new Promise(r => setTimeout(r, delayOverride));
     },
 
@@ -535,13 +567,13 @@ const bluetoothPrinter = {
         const value = event.target.value;
         const data = new Uint8Array(value.buffer);
         console.log("Printer Response:", Array.from(data).map(b => b.toString(16).padStart(2, '0')).join(' '));
-        
+
         // NIIMBOT responde con cmd+1. El ACK del handshake (0x01) llega como 0x02.
         if (data[2] === 0x02) {
             this.isAuthenticated = true;
             console.log("✅ Handshake ACK. Autenticación OK.");
         }
-        
+
         // ACK de fila (0x83 -> 0xD3): resolver el pendingRowAck para control de flujo
         if (data[2] === 0xD3) {
             const rowIdx = (data[3] << 8) | data[4];
@@ -552,13 +584,13 @@ const bluetoothPrinter = {
                 resolve();
             }
         }
-        
+
         // ACK de batería (0x06 -> 0x07)
         if (data[2] === 0x07) {
             console.log("🔋 Batería:", data[4], "%");
         }
     },
-    
+
     // Enviar una fila y esperar el ACK (0xD3) antes de continuar (flow control)
     async sendNiimbotRow(rowIndex, rowData) {
         const ACK_TIMEOUT = 300; // ms antes de continuar sin ACK
@@ -588,10 +620,19 @@ const bluetoothPrinter = {
         this.updateUI();
     },
 
+    removeAccents(text) {
+        if (!text) return "";
+        return text.normalize("NFD")
+            .replace(/[\u0300-\u036f]/g, "")
+            .replace(/ñ/g, "n")
+            .replace(/Ñ/g, "N");
+    },
+
     encodeText(text) {
-        // Basic UTF-8 to Windows-1252/ASCII for common thermal printers (simplified)
+        // Remove accents to avoid weird characters on thermal printers
+        const cleanText = this.removeAccents(text);
         const encoder = new TextEncoder();
-        return Array.from(encoder.encode(text));
+        return Array.from(encoder.encode(cleanText));
     },
 
     async sendData(data) {
@@ -614,15 +655,25 @@ const bluetoothPrinter = {
         const connectBtn = document.getElementById('printer-connect-btn');
         const autoPrintToggle = document.getElementById('printer-auto-toggle');
 
-        if (statusDot) statusDot.style.background = this.isConnected ? '#74c69d' : '#f28482';
-        if (statusText) statusText.innerText = this.isConnected ? 'Conectado' : 'Desconectado';
-        if (connectBtn) connectBtn.innerText = this.isConnected ? (this.printerModel === 'niimbot' ? 'Conectado (B1)' : 'Impresora Conectada') : 'Conectar Impresora';
-        
+        if (statusDot) {
+            statusDot.style.background = this.isConnected ? '#74c69d' : (this.isReconnecting ? '#ffd166' : '#f28482');
+        }
+        if (statusText) {
+            statusText.innerText = this.isConnected ? 'Conectado' : (this.isReconnecting ? 'Reconectando...' : 'Desconectado');
+        }
+        if (connectBtn) {
+            let modelName = 'Impresora Genérica';
+            if (this.printerModel === 'niimbot') modelName = 'NIIMBOT B1';
+            if (this.printerModel === 'eegvuy') modelName = 'EEGVUY';
+
+            connectBtn.innerText = this.isConnected ? `Conectado (${modelName})` : 'Conectar Impresora';
+        }
+
         const modelSelect = document.getElementById('printer-model-select');
         if (modelSelect) modelSelect.value = this.printerModel;
-        
+
         if (autoPrintToggle) autoPrintToggle.checked = this.autoPrint;
-        
+
         // Indicador visual en la pantalla principal si existe
         const mainIndicator = document.getElementById('pos-printer-indicator');
         if (mainIndicator) {
@@ -646,9 +697,11 @@ const bluetoothPrinter = {
         try {
             const barcode = String(aptData.ticketId);
             const saldo = Number(aptData.saldo !== undefined ? aptData.saldo : (aptData.total - aptData.initialPayment));
-            
+
             let ticket = [
                 ...this.commands.INIT,
+                ...this.commands.LINE_FEED,
+                ...this.commands.LINE_FEED,
                 ...this.commands.ALIGN_CENTER,
                 ...this.commands.BOLD_ON,
                 ...this.encodeText("TICKET DE APARTADO\n"),
@@ -682,6 +735,10 @@ const bluetoothPrinter = {
                 ...this.encodeText(`SALDO RESTANTE: $${saldo.toFixed(2)}\n`),
                 ...this.commands.BOLD_OFF,
                 ...this.commands.ALIGN_CENTER,
+                ...(aptData.method === 'Efectivo' ? this.commands.OPEN_DRAWER : []),
+                ...this.encodeText("\nGracias por su compra\n"),
+                ...this.encodeText("Ganguitas diseñado por\n"),
+                ...this.encodeText("www.Elysium-ie.com\n"),
                 ...this.encodeText("\nEscanee para abonar:\n"),
                 ...this.commands.BARCODE_WIDTH,
                 ...this.commands.BARCODE_HEIGHT,

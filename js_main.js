@@ -5,10 +5,10 @@ const app = {
   async init() {
     // Inject components into DOM
     await this.injectViews();
-    
+
     // Verificar si existe configuración (en archivo CONFIG o en localStorage)
     const hasConfig = API.URL && API.KEY;
-    
+
     if (!hasConfig) {
       this.switchView('setup', true); // replaceState
       return;
@@ -21,9 +21,9 @@ const app = {
       this.applyPermissions(savedRole, savedUser);
       // Intentar reconectar impresora si estaba el rol de Cajero o Admin
       if (savedRole === 'Cajero' || savedRole === 'Admin') {
-          setTimeout(() => {
-              if (typeof bluetoothPrinter !== 'undefined') bluetoothPrinter.connect(true);
-          }, 2000);
+        setTimeout(() => {
+          if (typeof bluetoothPrinter !== 'undefined') bluetoothPrinter.connect(true);
+        }, 2000);
       }
     } else {
       this.switchView('login', true); // replaceState
@@ -54,7 +54,7 @@ const app = {
     const views = ['login', 'pos', 'inventory', 'add-item', 'financials', 'setup'];
     for (let view of views) {
       const section = document.getElementById(`view-${view}`);
-      if(section && section.dataset.file) {
+      if (section && section.dataset.file) {
         try {
           const res = await fetch(section.dataset.file);
           if (res.ok) {
@@ -86,7 +86,7 @@ const app = {
     });
 
     const target = document.getElementById(`view-${viewId}`);
-    if(target) {
+    if (target) {
       target.classList.remove('hidden');
       target.classList.add('active');
     }
@@ -97,7 +97,7 @@ const app = {
     if (viewId === 'add-item') activeBtnId = 'add';
     if (viewId === 'inventory') activeBtnId = 'inv';
     if (viewId === 'financials') activeBtnId = 'fin';
-    
+
     const activeBtn = document.getElementById(`nav-${activeBtnId}`);
     if (activeBtn) activeBtn.classList.add('active');
 
@@ -109,11 +109,11 @@ const app = {
 
     // Actualizar historial si no viene de popstate
     if (!fromPopState) {
-        if (replace || viewId === 'login') {
-            history.replaceState({ view: viewId }, "", "#" + viewId);
-        } else {
-            history.pushState({ view: viewId }, "", "#" + viewId);
-        }
+      if (replace || viewId === 'login') {
+        history.replaceState({ view: viewId }, "", "#" + viewId);
+      } else {
+        history.pushState({ view: viewId }, "", "#" + viewId);
+      }
     }
     this.currentView = viewId;
 
@@ -128,30 +128,30 @@ const app = {
    */
   closeActiveModals() {
     const modals = [
-        'scanner-modal',
-        'logout-modal',
-        'printer-modal',
-        'register-open-modal',
-        'register-close-modal',
-        'pos-expense-modal',
-        'apartado-modal',
-        'apartado-details-modal',
-        'virtual-ticket-modal',
-        'image-viewer-modal'
+      'scanner-modal',
+      'logout-modal',
+      'printer-modal',
+      'register-open-modal',
+      'register-close-modal',
+      'pos-expense-modal',
+      'apartado-modal',
+      'apartado-details-modal',
+      'virtual-ticket-modal',
+      'image-viewer-modal'
     ];
-    
+
     let closed = false;
     modals.forEach(id => {
-        const m = document.getElementById(id);
-        if (m && !m.classList.contains('hidden')) {
-            m.classList.add('hidden');
-            closed = true;
-            
-            // Especiales para liberar recursos
-            if (id === 'scanner-modal' && typeof scannerModule !== 'undefined') {
-                scannerModule.stopScanner();
-            }
+      const m = document.getElementById(id);
+      if (m && !m.classList.contains('hidden')) {
+        m.classList.add('hidden');
+        closed = true;
+
+        // Especiales para liberar recursos
+        if (id === 'scanner-modal' && typeof scannerModule !== 'undefined') {
+          scannerModule.stopScanner();
         }
+      }
     });
 
     return closed;
@@ -171,38 +171,38 @@ const app = {
     localStorage.removeItem('elysium_role');
     localStorage.removeItem('elysium_user');
     this.switchView('login');
-    
+
     const u = document.getElementById('login-user');
     const p = document.getElementById('login-pass');
-    if(u) u.value = '';
-    if(p) p.value = '';
+    if (u) u.value = '';
+    if (p) p.value = '';
   },
 
   applyPermissions(role, username) {
     this.currentUserRole = role;
     this.currentUser = { userId: username, role: role };
     const d = document.getElementById('user-display');
-    if(d) d.innerText = `Rol: ${role} (${username})`;
+    if (d) d.innerText = `Rol: ${role} (${username})`;
 
-    
+
     const btnPos = document.getElementById('nav-pos');
     const btnInv = document.getElementById('nav-inv');
     const btnAdd = document.getElementById('nav-add');
     const btnFin = document.getElementById('nav-fin');
-    
-    if(btnPos) btnPos.style.display = 'inline-block';
-    if(btnInv) btnInv.style.display = 'inline-block';
-    if(btnAdd) btnAdd.style.display = 'inline-block';
-    if(btnFin) btnFin.style.display = 'inline-block';
+
+    if (btnPos) btnPos.style.display = 'inline-block';
+    if (btnInv) btnInv.style.display = 'inline-block';
+    if (btnAdd) btnAdd.style.display = 'inline-block';
+    if (btnFin) btnFin.style.display = 'inline-block';
 
     if (role === 'Cajero') {
-      if(btnInv) btnInv.style.display = 'none';
-      if(btnAdd) btnAdd.style.display = 'none';
-      if(btnFin) btnFin.style.display = 'none';
+      if (btnInv) btnInv.style.display = 'none';
+      if (btnAdd) btnAdd.style.display = 'none';
+      if (btnFin) btnFin.style.display = 'none';
       this.switchView('pos');
     } else if (role === 'Inventario') {
-      if(btnPos) btnPos.style.display = 'none';
-      if(btnFin) btnFin.style.display = 'none';
+      if (btnPos) btnPos.style.display = 'none';
+      if (btnFin) btnFin.style.display = 'none';
       this.switchView('inventory');
     } else if (role === 'Admin') {
       this.switchView('pos');
@@ -219,7 +219,7 @@ const app = {
     if (!modal) return;
 
     msg.innerText = message;
-    
+
     if (type === 'error') {
       icon.innerHTML = '<i class="fas fa-times-circle" style="color: var(--danger);"></i>';
       title.innerText = '¡Ups! Algo salió mal';
@@ -244,58 +244,58 @@ const app = {
 
   showConfirm(message, title = '¿Estás seguro?', type = 'warning') {
     return new Promise((resolve) => {
-        const modal = document.getElementById('confirm-modal');
-        const icon = document.getElementById('confirm-icon');
-        const titleEl = document.getElementById('confirm-title');
-        const msgEl = document.getElementById('confirm-message');
-        const btnYes = document.getElementById('confirm-btn-yes');
-        const btnNo = document.getElementById('confirm-btn-no');
+      const modal = document.getElementById('confirm-modal');
+      const icon = document.getElementById('confirm-icon');
+      const titleEl = document.getElementById('confirm-title');
+      const msgEl = document.getElementById('confirm-message');
+      const btnYes = document.getElementById('confirm-btn-yes');
+      const btnNo = document.getElementById('confirm-btn-no');
 
-        if (!modal) return resolve(false);
+      if (!modal) return resolve(false);
 
-        msgEl.innerText = message;
-        titleEl.innerText = title;
-        
-        if (type === 'danger') {
-            icon.innerHTML = '<i class="fas fa-trash-alt" style="color: var(--danger);"></i>';
-        } else {
-            icon.innerHTML = '<i class="fas fa-question-circle" style="color: var(--accent);"></i>';
-        }
+      msgEl.innerText = message;
+      titleEl.innerText = title;
 
-        const handleChoice = (choice) => {
-            modal.classList.add('hidden');
-            // Limpiar eventos para evitar fugas de memoria o ejecuciones dobles
-            btnYes.onclick = null;
-            btnNo.onclick = null;
-            resolve(choice);
-        };
+      if (type === 'danger') {
+        icon.innerHTML = '<i class="fas fa-trash-alt" style="color: var(--danger);"></i>';
+      } else {
+        icon.innerHTML = '<i class="fas fa-question-circle" style="color: var(--accent);"></i>';
+      }
 
-        btnYes.onclick = () => handleChoice(true);
-        btnNo.onclick = () => handleChoice(false);
+      const handleChoice = (choice) => {
+        modal.classList.add('hidden');
+        // Limpiar eventos para evitar fugas de memoria o ejecuciones dobles
+        btnYes.onclick = null;
+        btnNo.onclick = null;
+        resolve(choice);
+      };
 
-        modal.classList.remove('hidden');
+      btnYes.onclick = () => handleChoice(true);
+      btnNo.onclick = () => handleChoice(false);
+
+      modal.classList.remove('hidden');
     });
   },
 
   formatDateTime(dateStr) {
     if (!dateStr) return '---';
     try {
-        const d = new Date(dateStr);
-        if (isNaN(d.getTime())) return dateStr;
-        
-        const day = String(d.getDate()).padStart(2, '0');
-        const month = String(d.getMonth() + 1).padStart(2, '0');
-        const year = String(d.getFullYear()).slice(-2);
-        
-        let hours = d.getHours();
-        const minutes = String(d.getMinutes()).padStart(2, '0');
-        const ampm = hours >= 12 ? 'pm' : 'am';
-        
-        hours = hours % 12;
-        hours = hours ? hours : 12;
-        
-        return `${day}/${month}/${year} ${hours}:${minutes} ${ampm}`;
-    } catch(e) { return dateStr; }
+      const d = new Date(dateStr);
+      if (isNaN(d.getTime())) return dateStr;
+
+      const day = String(d.getDate()).padStart(2, '0');
+      const month = String(d.getMonth() + 1).padStart(2, '0');
+      const year = String(d.getFullYear()).slice(-2);
+
+      let hours = d.getHours();
+      const minutes = String(d.getMinutes()).padStart(2, '0');
+      const ampm = hours >= 12 ? 'pm' : 'am';
+
+      hours = hours % 12;
+      hours = hours ? hours : 12;
+
+      return `${day}/${month}/${year} ${hours}:${minutes} ${ampm}`;
+    } catch (e) { return dateStr; }
   },
 
   saveConfig() {
@@ -309,7 +309,7 @@ const app = {
 
     localStorage.setItem('elysium_api_url', url);
     localStorage.setItem('elysium_api_key', key);
-    
+
     this.showAlert("¡Configuración guardada! Reiniciando...", "success");
     setTimeout(() => location.reload(), 1500);
   },
@@ -319,33 +319,33 @@ const app = {
     const modal = document.getElementById('image-viewer-modal');
     const imgEl = document.getElementById('viewer-img');
     const navEl = document.getElementById('viewer-nav');
-    
+
     if (!modal || !imgEl) return;
-    
+
     let currentIndex = startIndex;
     const updateViewer = () => {
-        imgEl.src = images[currentIndex].url;
-        if (images.length > 1) {
-            navEl.innerHTML = `
+      imgEl.src = images[currentIndex].url;
+      if (images.length > 1) {
+        navEl.innerHTML = `
                 <button class="btn" style="width:40px; border-radius:50%;" onclick="event.stopPropagation(); app.prevViewer()"><i class="fas fa-chevron-left"></i></button>
                 <button class="btn" style="width:40px; border-radius:50%;" onclick="event.stopPropagation(); app.nextViewer()"><i class="fas fa-chevron-right"></i></button>
             `;
-        } else {
-            navEl.innerHTML = '';
-        }
+      } else {
+        navEl.innerHTML = '';
+      }
     };
-    
+
     this.currentViewerImages = images;
     this.currentViewerIndex = currentIndex;
     this.nextViewer = () => {
-        this.currentViewerIndex = (this.currentViewerIndex + 1) % this.currentViewerImages.length;
-        imgEl.src = this.currentViewerImages[this.currentViewerIndex].url;
+      this.currentViewerIndex = (this.currentViewerIndex + 1) % this.currentViewerImages.length;
+      imgEl.src = this.currentViewerImages[this.currentViewerIndex].url;
     };
     this.prevViewer = () => {
-        this.currentViewerIndex = (this.currentViewerIndex - 1 + this.currentViewerImages.length) % this.currentViewerImages.length;
-        imgEl.src = this.currentViewerImages[this.currentViewerIndex].url;
+      this.currentViewerIndex = (this.currentViewerIndex - 1 + this.currentViewerImages.length) % this.currentViewerImages.length;
+      imgEl.src = this.currentViewerImages[this.currentViewerIndex].url;
     };
-    
+
     updateViewer();
     modal.classList.remove('hidden');
   }
@@ -353,7 +353,14 @@ const app = {
 
 window.addEventListener('DOMContentLoaded', () => {
   app.init();
-  
+
+  // Reconexión automática de impresora (silenciosa)
+  setTimeout(() => {
+    if (typeof bluetoothPrinter !== 'undefined') {
+      bluetoothPrinter.connect(true);
+    }
+  }, 2000);
+
   // Registro de Service Worker para PWA
   if ('serviceWorker' in navigator) {
     window.addEventListener('load', () => {

@@ -28,10 +28,18 @@ const API = {
       try {
         return JSON.parse(text);
       } catch (e) {
+        // Si el texto parece ser la respuesta de doGet (error común de redirección en GAS)
+        if (text.includes("Usa método POST")) {
+          console.warn("⚠️ Detectada redirección silenciosa. Reintentando con configuración de red forzada...");
+          return {
+            success: false,
+            message: "Error de sincronización con Google Apps Script. Por favor, refresca la página."
+          };
+        }
         console.error("Respuesta no es JSON:", text);
-        return { 
-          success: false, 
-          message: "La respuesta del servidor no es válida (posible error de redirección). Contenido: " + text.substring(0, 50) + "..."
+        return {
+          success: false,
+          message: "Respuesta inválida del servidor. Código: API_NON_JSON"
         };
       }
     } catch (err) {
