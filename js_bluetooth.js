@@ -12,7 +12,6 @@ const bluetoothPrinter = {
     isAuthenticated: false,
     pendingRowAck: null, // Control de flujo: resolve() al recibir ACK de fila
     reconnectInterval: null,
-    isNiimbot() { return this.printerModel === 'niimbot'; },
 
     // UUIDs NIIMBOT
     NIIMBOT_SERVICE: 'e7810a71-73ae-499d-8c15-faa9aef0c3f2',
@@ -57,7 +56,7 @@ const bluetoothPrinter = {
 
                 // 1. Obtener dispositivo (Filtros)
                 if (!this.device) {
-                    const filters = this.isNiimbot() ? [
+                    const filters = (this.printerModel === 'niimbot') ? [
                         { services: [this.NIIMBOT_SERVICE] }, { namePrefix: 'B' }, { namePrefix: 'NIIMBOT' }
                     ] : [
                         { services: ['000018f0-0000-1000-8000-00805f9b34fb'] },
@@ -110,7 +109,7 @@ const bluetoothPrinter = {
                 // 5. Descubrimiento Plural (MÁS TOLERANTE)
                 console.log("Descubriendo servicios...");
                 const services = await this.server.getPrimaryServices();
-                const serviceUUID = this.isNiimbot() ? this.NIIMBOT_SERVICE : '000018f0-0000-1000-8000-00805f9b34fb';
+                const serviceUUID = (this.printerModel === 'niimbot') ? this.NIIMBOT_SERVICE : '000018f0-0000-1000-8000-00805f9b34fb';
                 const service = services.find(s => s.uuid.toLowerCase() === serviceUUID.toLowerCase());
 
                 if (!service) {
@@ -137,9 +136,9 @@ const bluetoothPrinter = {
                 this.updateUI();
 
                 // Handshake Niimbot
-                // Handshake Niimbot
-                if (this.isNiimbot()) {
+                if (this.printerModel === 'niimbot') {
                     if (!silent) this.updateUI("Autenticando...");
+
                     await this.sendNiimbotPacket(0x01, [0x01]);
                     const authOk = await this.waitUntilAuthenticated(silent ? 3000 : 8000);
                     if (authOk) this.sendNiimbotPacket(0x06, [0x01]);
