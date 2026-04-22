@@ -12,6 +12,7 @@ const bluetoothPrinter = {
     isAuthenticated: false,
     pendingRowAck: null, // Control de flujo: resolve() al recibir ACK de fila
     reconnectInterval: null,
+    isNiimbot() { return this.printerModel === 'niimbot'; },
 
     // UUIDs NIIMBOT
     NIIMBOT_SERVICE: 'e7810a71-73ae-499d-8c15-faa9aef0c3f2',
