@@ -1,0 +1,110 @@
+{
+  "success": true,
+  "data": [
+    {
+      "date": "2026-04-22T20:34:36.703Z",
+      "type": "APARTADO_PAGO",
+      "amount": 10,
+      "user": "admin",
+      "note": " | Abono"
+    },
+    {
+      "date": "2026-04-22T19:43:52.046Z",
+      "type": "VENTA",
+      "amount": 240,
+      "user": "T-MOAGNSOE",
+      "note": "Transferencia"
+    },
+    {
+      "date": "2026-04-22T19:41:06.121Z",
+      "type": "APARTADO_PAGO",
+      "amount": 50,
+      "user": "admin",
+      "note": "A-MOAFICGE | Abono"
+    },
+    {
+      "date": "2026-04-22T19:33:01.193Z",
+      "type": "VENTA",
+      "amount": 240,
+      "user": "T-MOAG9UH5",
+      "note": "Tarjeta"
+    },
+    {
+      "date": "2026-04-22T19:31:51.674Z",
+      "type": "APARTADO_PAGO",
+      "amount": 47,
+      "user": "admin",
+      "note": "A-MOAFICGE | Abono"
+    },
+    {
+      "date": "2026-04-22T19:20:53.554Z",
+      "type": "APARTADO_PAGO",
+      "amount": 40,
+      "user": "admin",
+      "note": "A-MOAFICGE | Abono"
+    },
+    {
+      "date": "2026-04-22T19:11:44.167Z",
+      "type": "APARTADO_ABONO",
+      "amount": 80,
+      "user": "admin",
+      "note": "A-MOAFICGE | Abono"
+    },
+    {
+      "date": "2026-04-22T19:10:39.743Z",
+      "type": "VENTA",
+      "amount": 240,
+      "user": "T-MOAFH3EN",
+      "note": "Tarjeta"
+    },
+    {
+      "date": "2026-04-22T19:00:21.748Z",
+      "type": "VENTA",
+      "amount": 240,
+      "user": "T-MOAF3UK4",
+      "note": "Efectivo"
+    },
+    {
+      "date": "2026-04-22T18:51:25.062Z",
+      "type": "VENTA",
+      "amount": 240,
+      "user": "T-MOAESCG6",
+      "note": "Efectivo"
+    },
+    {
+      "date": "2026-04-22T18:42:05.957Z",
+      "type": "APARTADO_ABONO",
+      "amount": 100,
+      "user": "admin",
+      "note": "APT-1776883321122 | Abono"
+    },
+    {
+      "date": "2026-04-22T18:38:21.059Z",
+      "type": "VENTA",
+      "amount": 240,
+      "user": "TKT-1776883101059",
+      "note": "Efectivo"
+    },
+    {
+      "date": "2026-04-22T18:31:13.812Z",
+      "type": "VENTA",
+      "amount": 240,
+      "user": "TKT-1776882673812",
+      "note": "Efectivo"
+    },
+    {
+      "date": "2026-04-22T18:15:35.348Z",
+      "type": "VENTA",
+      "amount": 240,
+      "user": "TKT-1776881735348",
+      "note": "Tarjeta"
+    },
+    {
+      "date": "2026-04-22T06:26:25.000Z",
+      "type": "APERTURA",
+      "amount": 0,
+      "user": "admin",
+      "note": "Inicio de jornada"
+    }
+  ]
+}

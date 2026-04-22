@@ -50,5 +50,18 @@ const dataManager = {
     this.financialsCache = null;
     this.movementsCache = null;
     this.lastFetchTimes = { inventory: 0, financials: 0, movements: 0 };
+  },
+
+  async forcePWACacheClear() {
+    if ('serviceWorker' in navigator) {
+      const regs = await navigator.serviceWorker.getRegistrations();
+      for (let reg of regs) { await reg.unregister(); }
+    }
+    if ('caches' in window) {
+      const keys = await caches.keys();
+      for (let key of keys) { await caches.delete(key); }
+    }
+    window.location.reload(true);
   }
 };
+
