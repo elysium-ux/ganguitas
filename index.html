@@ -109,8 +109,8 @@
         <div style="font-size: 3rem; margin-bottom: 1rem;">👋</div>
         <h3 style="margin-bottom: 0.5rem;">¿Cerrar sesión?</h3>
         <p style="margin-bottom: 1.5rem; color: var(--text-muted);">¿Estás seguro de que deseas salir del sistema?</p>
-        </div>
       </div>
+    </div>
     </div>
 
     <!-- Modal Confirmación Genérico -->
@@ -120,19 +120,24 @@
         <h3 id="confirm-title" style="margin-bottom: 0.5rem;"></h3>
         <p id="confirm-message" style="margin-bottom: 1.5rem; color: var(--text-muted);"></p>
         <div style="display: flex; gap: 10px;">
-            <button id="confirm-btn-yes" class="btn success" style="flex: 1;">Sí</button>
-            <button id="confirm-btn-no" class="btn danger" style="flex: 1;">No</button>
+          <button id="confirm-btn-yes" class="btn success" style="flex: 1;">Sí</button>
+          <button id="confirm-btn-no" class="btn danger" style="flex: 1;">No</button>
         </div>
       </div>
     </div>
 
     <!-- Modal Visor de Imágenes -->
-    <div id="image-viewer-modal" class="modal-overlay hidden" style="z-index: 20000; padding: 0;" onclick="this.classList.add('hidden')">
-      <div style="width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; position: relative;">
-        <button class="btn danger" style="position: absolute; top: 20px; right: 20px; width: 40px; height: 40px; border-radius: 50%; z-index: 10;" onclick="document.getElementById('image-viewer-modal').classList.add('hidden')">×</button>
-        <img id="viewer-img" src="" style="max-width: 100%; max-height: 100%; object-fit: contain; box-shadow: 0 0 50px rgba(0,0,0,0.5);">
+    <div id="image-viewer-modal" class="modal-overlay hidden" style="z-index: 20000; padding: 0;"
+      onclick="this.classList.add('hidden')">
+      <div
+        style="width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; position: relative;">
+        <button class="btn danger"
+          style="position: absolute; top: 20px; right: 20px; width: 40px; height: 40px; border-radius: 50%; z-index: 10;"
+          onclick="document.getElementById('image-viewer-modal').classList.add('hidden')">×</button>
+        <img id="viewer-img" src=""
+          style="max-width: 100%; max-height: 100%; object-fit: contain; box-shadow: 0 0 50px rgba(0,0,0,0.5);">
         <div id="viewer-nav" class="carousel-nav" style="padding: 0 20px; box-sizing: border-box;">
-            <!-- Nav buttons if multiple -->
+          <!-- Nav buttons if multiple -->
         </div>
       </div>
     </div>
