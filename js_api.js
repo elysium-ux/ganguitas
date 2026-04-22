@@ -1,4 +1,5 @@
 const API = {
+  VERSION: "1.5 (Con Logs)",
   // Intentar obtener de CONFIG (archivo local) o de localStorage (para GitHub)
   get URL() {
     return (typeof CONFIG !== 'undefined' ? CONFIG.API_URL : null) || localStorage.getItem('elysium_api_url') || "";
@@ -15,7 +16,7 @@ const API = {
     try {
       const response = await fetch(this.URL, {
         method: 'POST',
-        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+        headers: { 'Content-Type': 'text/plain' },
         body: JSON.stringify({
           action: action,
           apiKey: this.KEY,
@@ -23,8 +24,16 @@ const API = {
         })
       });
 
-      const result = await response.json();
-      return result;
+      const text = await response.text();
+      try {
+        return JSON.parse(text);
+      } catch (e) {
+        console.error("Respuesta no es JSON:", text);
+        return { 
+          success: false, 
+          message: "La respuesta del servidor no es válida (posible error de redirección). Contenido: " + text.substring(0, 50) + "..."
+        };
+      }
     } catch (err) {
       console.error("Error API:", err);
       return { success: false, message: "Error de red: " + err.message };

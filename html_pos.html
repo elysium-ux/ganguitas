@@ -45,9 +45,9 @@
             <strong id="pos-change-display" style="font-size: 1.2rem; color: var(--primary);">$0.00</strong>
         </div>
       </div>
-      <div style="display: flex; align-items: center; gap: 8px; margin-top: 1rem; padding: 0.5rem; background: rgba(var(--primary-rgb), 0.1); border-radius: 10px;">
-        <input type="checkbox" id="pos-is-apartado" style="width: 20px; height: 20px; cursor: pointer;">
-        <label for="pos-is-apartado" style="font-weight: bold; color: var(--primary); font-size: 0.9rem; cursor: pointer;">¿Es un Apartado?</label>
+      <div style="display: flex; align-items: center; gap: 10px; margin-top: 1rem; padding: 0.6rem 1rem; background: rgba(255, 182, 193, 0.1); border-radius: 15px; border: 1px solid rgba(255, 182, 193, 0.2);">
+        <input type="checkbox" id="pos-is-apartado" style="width: 20px; height: 20px; cursor: pointer; margin: 0; flex-shrink: 0;">
+        <label for="pos-is-apartado" style="font-weight: bold; color: var(--primary); font-size: 0.95rem; cursor: pointer; margin: 0; line-height: 20px; user-select: none;">¿Es un Apartado?</label>
       </div>
       <button class="btn success" style="margin-top: 1rem;" onclick="posModule.processSale()">Cobrar y Finalizar</button>
       <button class="btn danger" style="margin-top: 0.5rem; padding: 5px; font-size: 0.8rem;" onclick="posModule.clearCart()">Limpiar Carrito</button>

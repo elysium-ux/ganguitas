@@ -118,7 +118,7 @@ const app = {
     this.currentView = viewId;
 
     if (viewId === 'inventory' && typeof inventoryModule !== 'undefined') inventoryModule.loadInventory(false);
-    if (viewId === 'add-item' && typeof addItemModule !== 'undefined') addItemModule.loadRecentItems();
+    if (viewId === 'add-item' && typeof addItemModule !== 'undefined') addItemModule.init();
     if (viewId === 'financials' && typeof financialsModule !== 'undefined') financialsModule.loadSummary();
     if (viewId === 'pos' && typeof posModule !== 'undefined') posModule.loadCatalog(false);
   },
@@ -136,7 +136,8 @@ const app = {
         'pos-expense-modal',
         'apartado-modal',
         'apartado-details-modal',
-        'virtual-ticket-modal'
+        'virtual-ticket-modal',
+        'image-viewer-modal'
     ];
     
     let closed = false;
@@ -241,6 +242,41 @@ const app = {
     if (modal) modal.classList.add('hidden');
   },
 
+  showConfirm(message, title = '¿Estás seguro?', type = 'warning') {
+    return new Promise((resolve) => {
+        const modal = document.getElementById('confirm-modal');
+        const icon = document.getElementById('confirm-icon');
+        const titleEl = document.getElementById('confirm-title');
+        const msgEl = document.getElementById('confirm-message');
+        const btnYes = document.getElementById('confirm-btn-yes');
+        const btnNo = document.getElementById('confirm-btn-no');
+
+        if (!modal) return resolve(false);
+
+        msgEl.innerText = message;
+        titleEl.innerText = title;
+        
+        if (type === 'danger') {
+            icon.innerHTML = '<i class="fas fa-trash-alt" style="color: var(--danger);"></i>';
+        } else {
+            icon.innerHTML = '<i class="fas fa-question-circle" style="color: var(--accent);"></i>';
+        }
+
+        const handleChoice = (choice) => {
+            modal.classList.add('hidden');
+            // Limpiar eventos para evitar fugas de memoria o ejecuciones dobles
+            btnYes.onclick = null;
+            btnNo.onclick = null;
+            resolve(choice);
+        };
+
+        btnYes.onclick = () => handleChoice(true);
+        btnNo.onclick = () => handleChoice(false);
+
+        modal.classList.remove('hidden');
+    });
+  },
+
   formatDateTime(dateStr) {
     if (!dateStr) return '---';
     try {
@@ -276,6 +312,42 @@ const app = {
     
     this.showAlert("¡Configuración guardada! Reiniciando...", "success");
     setTimeout(() => location.reload(), 1500);
+  },
+
+  openImageViewer(images, startIndex = 0) {
+    if (!images || images.length === 0) return;
+    const modal = document.getElementById('image-viewer-modal');
+    const imgEl = document.getElementById('viewer-img');
+    const navEl = document.getElementById('viewer-nav');
+    
+    if (!modal || !imgEl) return;
+    
+    let currentIndex = startIndex;
+    const updateViewer = () => {
+        imgEl.src = images[currentIndex].url;
+        if (images.length > 1) {
+            navEl.innerHTML = `
+                <button class="btn" style="width:40px; border-radius:50%;" onclick="event.stopPropagation(); app.prevViewer()"><i class="fas fa-chevron-left"></i></button>
+                <button class="btn" style="width:40px; border-radius:50%;" onclick="event.stopPropagation(); app.nextViewer()"><i class="fas fa-chevron-right"></i></button>
+            `;
+        } else {
+            navEl.innerHTML = '';
+        }
+    };
+    
+    this.currentViewerImages = images;
+    this.currentViewerIndex = currentIndex;
+    this.nextViewer = () => {
+        this.currentViewerIndex = (this.currentViewerIndex + 1) % this.currentViewerImages.length;
+        imgEl.src = this.currentViewerImages[this.currentViewerIndex].url;
+    };
+    this.prevViewer = () => {
+        this.currentViewerIndex = (this.currentViewerIndex - 1 + this.currentViewerImages.length) % this.currentViewerImages.length;
+        imgEl.src = this.currentViewerImages[this.currentViewerIndex].url;
+    };
+    
+    updateViewer();
+    modal.classList.remove('hidden');
   }
 };
 

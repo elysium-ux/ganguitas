@@ -2,7 +2,8 @@
 
   <!-- Form to add products -->
   <div class="glass-panel" style="padding: 1.5rem;">
-    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 10px; margin-bottom: 1.5rem;">
+    <div
+      style="display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 10px; margin-bottom: 1.5rem;">
       <button id="btn-mode-create" class="btn active" onclick="addItemModule.setMode('create')">Crear Nuevo</button>
       <button id="btn-mode-edit" class="btn" style="background: var(--accent); color: #594a5c;"
         onclick="addItemModule.setMode('edit')">Editar Existente</button>
@@ -39,7 +40,20 @@
     <label>Precio Venta al Público ($)</label>
     <input type="number" id="inv-sale" step="0.01">
 
-    <button id="btn-save-product" class="btn success" onclick="addItemModule.saveProduct()">Guardar Producto</button>
+    <label style="margin-top: 1rem; display: block;">Imágenes del Producto (Máx. 5)</label>
+    <div class="image-uploader-grid" id="image-uploader-grid">
+      <!-- Generado dinámicamente por JS -->
+    </div>
+    <input type="file" id="inv-file-input" style="display: none;" accept="image/*" multiple
+      onchange="addItemModule.handleFileSelect(event)">
+
+    <button id="btn-save-product" class="btn success" onclick="addItemModule.saveProduct()"
+      style="margin-top: 1rem;">Guardar Producto</button>
+      
+    <button id="btn-delete-product" class="btn danger hidden" onclick="addItemModule.confirmDeleteProduct()"
+      style="margin-top: 0.5rem; background: #ffadad22; border: 1px solid var(--danger); color: #c0392b;">
+      <i class="fas fa-trash-alt"></i> Eliminar Artículo
+    </button>
 
     <!-- Area de vista previa de etiqueta -->
     <div id="barcode-preview-area" class="hidden"

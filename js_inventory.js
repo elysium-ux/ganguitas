@@ -46,6 +46,19 @@ const inventoryModule = {
     this.renderTable(filtered);
   },
 
+  renderImageCarousel(images, barcode) {
+    if (!images || images.length === 0) return '<div class="mini-carousel" style="display:flex; align-items:center; justify-content:center; background:#eee;"><i class="fas fa-image" style="color:#ccc;"></i></div>';
+    
+    return `
+      <div class="mini-carousel" id="carousel-${barcode}" onclick="event.stopPropagation(); app.openImageViewer(${JSON.stringify(images).replace(/"/g, '&quot;')})">
+        <img src="${images[0].url}" id="img-${barcode}-0">
+        <div class="carousel-dots">
+          ${images.map((_, i) => `<div class="dot ${i === 0 ? 'active' : ''}"></div>`).join('')}
+        </div>
+      </div>
+    `;
+  },
+
   renderTable(data) {
     const tbody = document.getElementById('audit-inventory-tbody');
     if (!tbody) return;
@@ -56,6 +69,7 @@ const inventoryModule = {
       tbody.innerHTML += `
         <tr>
           <td>${app.formatDateTime(p.dateAdded)}</td>
+          <td>${this.renderImageCarousel(p.images, p.barcode)}</td>
           <td>${p.barcode}</td>
           <td><strong>${p.name}</strong></td>
           <td style="${statusClass}">${p.stock}</td>

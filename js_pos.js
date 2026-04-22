@@ -51,7 +51,21 @@ const posModule = {
     const tbody = document.getElementById('pos-movements-tbody');
     if (!tbody) return;
     tbody.innerHTML = '';
-    data.forEach(m => {
+
+    const todayStr = new Date().toDateString();
+    
+    // Filtrar solo los movimientos de HOY
+    const filteredData = data.filter(m => {
+        const moveDate = new Date(m.date);
+        return moveDate.toDateString() === todayStr;
+    });
+
+    if (filteredData.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="4" style="text-align:center; padding:1rem; color:var(--text-muted);">Sin movimientos hoy.</td></tr>';
+        return;
+    }
+
+    filteredData.forEach(m => {
         let typeColor = '#d67eb1';
         if(m.type === 'APERTURA') typeColor = '#74c69d';
         if(m.type === 'VENTA') typeColor = '#4a90e2';
@@ -99,21 +113,61 @@ const posModule = {
 
     data.forEach(p => {
       list.innerHTML += `
-        <div class="product-card" onclick="posModule.addToCart('${p.barcode}')" style="padding: 0.8rem; display: flex; align-items: center; gap: 15px;">
-          <div style="background: var(--primary-light); width: 40px; height: 40px; border-radius: 10px; display: flex; align-items: center; justify-content: center; color: white;">
-            <i class="fas fa-tag"></i>
-          </div>
-          <div style="flex: 1;">
-            <div class="p-name" style="font-size:0.9rem; margin:0;">${p.name}</div>
-            <div style="font-size:0.7rem; color:var(--text-muted);">${p.barcode}</div>
-          </div>
-          <div style="text-align: right;">
-            <div class="p-price" style="font-size:1rem; margin:0;">$${Number(p.salePrice).toFixed(2)}</div>
-            <div style="font-size:0.7rem;">Stock: ${p.stock}</div>
+        <div class="product-card" style="padding: 0.8rem; display: flex; flex-direction: column; gap: 10px;">
+          ${this.renderCardCarousel(p.images || [], p.barcode)}
+          <div onclick="posModule.addToCart('${p.barcode}')" style="display: flex; align-items: center; gap: 15px; cursor: pointer;">
+            <div style="flex: 1;">
+              <div class="p-name" style="font-size:0.9rem; margin:0;">${p.name}</div>
+              <div style="font-size:0.7rem; color:var(--text-muted);">${p.barcode}</div>
+            </div>
+            <div style="text-align: right;">
+              <div class="p-price" style="font-size:1rem; margin:0;">$${Number(p.salePrice).toFixed(2)}</div>
+              <div style="font-size:0.7rem;">Stock: ${p.stock}</div>
+            </div>
           </div>
         </div>
       `;
     });
+  },
+
+  renderCardCarousel(images, barcode) {
+    if (!images || images.length === 0) {
+        return `
+            <div style="background: var(--bg-color); height: 100px; border-radius: 12px; display: flex; align-items: center; justify-content: center; color: var(--text-muted);">
+                <i class="fas fa-image fa-2x"></i>
+            </div>
+        `;
+    }
+    
+    return `
+      <div class="card-carousel" id="card-carousel-${barcode}" onclick="event.stopPropagation(); app.openImageViewer(${JSON.stringify(images).replace(/"/g, '&quot;')}, posModule.catalog.find(p => String(p.barcode) === '${barcode}').currentImageIndex || 0)">
+        <img src="${images[0].url}" id="card-img-${barcode}">
+        ${images.length > 1 ? `
+        <div class="carousel-nav">
+          <button onclick="posModule.changeCardImage('${barcode}', -1)"><i class="fas fa-chevron-left"></i></button>
+          <button onclick="posModule.changeCardImage('${barcode}', 1)"><i class="fas fa-chevron-right"></i></button>
+        </div>
+        <div class="carousel-dots" style="bottom: 5px;">
+          ${images.map((_, i) => `<div class="dot ${i === 0 ? 'active' : ''}"></div>`).join('')}
+        </div>
+        ` : ''}
+      </div>
+    `;
+  },
+
+  changeCardImage(barcode, dir) {
+    const product = this.catalog.find(p => String(p.barcode) === String(barcode));
+    if (!product || !product.images) return;
+    
+    if (!product.currentImageIndex) product.currentImageIndex = 0;
+    product.currentImageIndex = (product.currentImageIndex + dir + product.images.length) % product.images.length;
+    
+    const imgEl = document.getElementById(`card-img-${barcode}`);
+    if (imgEl) imgEl.src = product.images[product.currentImageIndex].url;
+    
+    // Update dots
+    const dots = document.querySelectorAll(`#card-carousel-${barcode} .dot`);
+    dots.forEach((dot, i) => dot.classList.toggle('active', i === product.currentImageIndex));
   },
 
   filterCatalog(e) {
