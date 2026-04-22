@@ -66,7 +66,15 @@ const bluetoothPrinter = {
                     
                     if (silent && navigator.bluetooth && navigator.bluetooth.getDevices) {
                         const devices = await navigator.bluetooth.getDevices();
-                        if (devices.length > 0) this.device = devices[0];
+                        const savedId = localStorage.getItem('last_printer_id');
+                        
+                        if (savedId) {
+                            this.device = devices.find(d => d.id === savedId);
+                        }
+                        
+                        if (!this.device && devices.length > 0) {
+                            this.device = devices[0];
+                        }
                     }
 
                     if (!this.device) {
@@ -128,6 +136,7 @@ const bluetoothPrinter = {
                 this.updateUI();
 
                 // Handshake Niimbot
+                // Handshake Niimbot
                 if (this.isNiimbot()) {
                     if (!silent) this.updateUI("Autenticando...");
                     await this.sendNiimbotPacket(0x01, [0x01]);
@@ -136,6 +145,12 @@ const bluetoothPrinter = {
                 }
 
                 if (!silent) app.showAlert("¡Conectado exitosamente!", "success");
+                
+                // Guardar para reconexión automática
+                if (this.device && this.device.id) {
+                    localStorage.setItem('last_printer_id', this.device.id);
+                }
+                
                 this.startHeartbeat();
                 return true;
 
