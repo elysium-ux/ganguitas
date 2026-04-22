@@ -384,8 +384,10 @@
         <div id="apt-payment-section">
             <label>Registrar nuevo abono ($)</label>
             <div style="display: flex; gap: 10px; align-items: center;">
-                <input type="number" id="apt-new-payment-amount" placeholder="0.00" style="flex: 1;" oninput="posModule.calculateApartadoDetailChange()">
-                <select id="apt-new-payment-method" style="width: 120px;" onchange="posModule.calculateApartadoDetailChange()">
+                <input type="number" id="apt-new-payment-amount" placeholder="0.00" style="flex: 1;"
+                    oninput="posModule.calculateApartadoDetailChange()">
+                <select id="apt-new-payment-method" style="width: 120px;"
+                    onchange="posModule.calculateApartadoDetailChange()">
                     <option value="Efectivo">Efectivo</option>
                     <option value="Tarjeta">Tarjeta</option>
                     <option value="Transferencia">Transferencia</option>
@@ -398,7 +400,8 @@
                 <input type="number" id="apt-detail-cash-received" oninput="posModule.calculateApartadoDetailChange()">
                 <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 5px;">
                     <span style="font-size: 0.8rem;">Cambio:</span>
-                    <strong id="apt-detail-change-display" style="font-size: 1.2rem; color: var(--primary);">$0.00</strong>
+                    <strong id="apt-detail-change-display"
+                        style="font-size: 1.2rem; color: var(--primary);">$0.00</strong>
                 </div>
             </div>
 

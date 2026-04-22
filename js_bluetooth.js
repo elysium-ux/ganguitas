@@ -84,7 +84,17 @@ const bluetoothPrinter = {
 
             console.log("Conectando al servidor GATT...");
             this.device.addEventListener('gattserverdisconnected', () => this.onDisconnected());
+            
+            // Intento de conexión con espera para estabilizar (CRUCIAL EN MÓVILES)
             this.server = await this.device.gatt.connect();
+            
+            // Pequeña espera para estabilizar el servidor GATT (evita el error 'Gatt server is disconnected')
+            await new Promise(r => setTimeout(r, 600));
+
+            if (!this.server.connected) {
+                console.log("Reintentando conexión GATT...");
+                this.server = await this.device.gatt.connect();
+            }
 
             console.log("Obteniendo servicio primario...");
             const serviceUUID = this.printerModel === 'niimbot' ? this.NIIMBOT_SERVICE : '000018f0-0000-1000-8000-00805f9b34fb';
