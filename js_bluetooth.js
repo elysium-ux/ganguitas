@@ -37,118 +37,126 @@ const bluetoothPrinter = {
     },
 
     async connect(silent = false) {
-        try {
-            console.log(silent ? "Intentando reconexión silenciosa..." : "Solicitando dispositivo Bluetooth...");
+        let attempts = 0;
+        const maxAttempts = silent ? 1 : 3;
+        
+        // Reset flags
+        this.isConnected = false;
+        if (!silent) this.autoPrint = localStorage.getItem('printer_auto_print') === 'true';
 
-            const filters = this.printerModel === 'niimbot' ? [
-                { services: [this.NIIMBOT_SERVICE] },
-                { namePrefix: 'B' }, // NIIMBOT B1, B21, etc
-                { namePrefix: 'NIIMBOT' }
-            ] : [
-                { services: ['000018f0-0000-1000-8000-00805f9b34fb'] },
-                { namePrefix: 'TP' },
-                { namePrefix: 'MPT' },
-                { namePrefix: 'Printer' },
-                { namePrefix: 'MTP' },
-                { namePrefix: 'EEGVUY' }
-            ];
-
-            const optionalServices = this.printerModel === 'niimbot' ? [this.NIIMBOT_SERVICE] : ['000018f0-0000-1000-8000-00805f9b34fb'];
-
-            const savedModel = localStorage.getItem('printer_model');
-            if (savedModel) this.printerModel = savedModel;
-
-            // Si es silencioso y ya tenemos dispositivo o podemos obtenerlo
-            if (silent && !this.device && navigator.bluetooth && navigator.bluetooth.getDevices) {
-                const devices = await navigator.bluetooth.getDevices();
-                if (devices.length > 0) {
-                    // Buscar uno que coincida con nuestros filtros o el último usado
-                    this.device = devices[0];
-                    console.log("Dispositivo encontrado en caché:", this.device.name);
+        while (attempts < maxAttempts) {
+            attempts++;
+            try {
+                if (!silent) {
+                    this.isReconnecting = true; // Usamos esto para el estado 'Conectando'
+                    this.updateUI(attempts > 1 ? `Reintentando (${attempts}/${maxAttempts})...` : "Conectando...");
                 }
-            }
 
-            if (!this.device) {
-                if (silent) return false;
+                console.log(`[Bluetooth] Intento ${attempts}/${maxAttempts}...`);
+
+                // 1. Obtener dispositivo (Filtros)
+                if (!this.device) {
+                    const filters = this.printerModel === 'niimbot' ? [
+                        { services: [this.NIIMBOT_SERVICE] },
+                        { namePrefix: 'B' }, 
+                        { namePrefix: 'NIIMBOT' }
+                    ] : [
+                        { services: ['000018f0-0000-1000-8000-00805f9b34fb'] },
+                        { namePrefix: 'TP' }, { namePrefix: 'MPT' }, { namePrefix: 'Printer' },
+                        { namePrefix: 'MTP' }, { namePrefix: 'EEGVUY' }
+                    ];
+                    
+                    const optionalServices = this.printerModel === 'niimbot' ? [this.NIIMBOT_SERVICE] : ['000018f0-0000-1000-8000-00805f9b34fb'];
+
+                    if (silent && navigator.bluetooth && navigator.bluetooth.getDevices) {
+                        const devices = await navigator.bluetooth.getDevices();
+                        if (devices.length > 0) this.device = devices[0];
+                    }
+
+                    if (!this.device) {
+                        if (silent) return false;
+                        this.device = await navigator.bluetooth.requestDevice({ filters, optionalServices });
+                    }
+                }
+
+                // 2. Conectar GATT
+                if (this.server && this.server.connected) {
+                     // Ya conectado, saltar
+                } else {
+                    console.log("Conectando al servidor GATT...");
+                    this.device.addEventListener('gattserverdisconnected', () => this.onDisconnected());
+                    this.server = await this.device.gatt.connect();
+                }
+
+                // 3. Estabilización (Crucial para Android)
+                if (!silent) this.updateUI("Estabilizando...");
+                await new Promise(r => setTimeout(r, 1500));
+
+                if (!this.server.connected) {
+                    throw new Error("GATT disconnected after stabilization");
+                }
+
+                // 4. Obtener Servicio
+                console.log("Obteniendo servicio primario...");
+                const serviceUUID = this.printerModel === 'niimbot' ? this.NIIMBOT_SERVICE : '000018f0-0000-1000-8000-00805f9b34fb';
+                const service = await this.server.getPrimaryService(serviceUUID);
+
+                // 5. Obtener Característica
+                console.log("Obteniendo característica...");
+                const characteristics = await service.getCharacteristics();
+                this.characteristic = characteristics.find(c => c.properties.write || c.properties.writeWithoutResponse);
+
+                if (!this.characteristic) {
+                    throw new Error("No characteristic found");
+                }
+
+                // 6. Configurar Notificaciones
+                if (this.characteristic.properties.notify) {
+                    try {
+                        await this.characteristic.startNotifications();
+                        this.characteristic.addEventListener('characteristicvaluechanged', (e) => this.handlePrinterResponse(e));
+                    } catch (e) { console.warn("Notify error:", e); }
+                }
+
+                this.isConnected = true;
                 this.isReconnecting = false;
-                this.device = await navigator.bluetooth.requestDevice({
-                    filters: filters,
-                    optionalServices: optionalServices
-                });
-            }
-
-            if (silent) {
-                this.isReconnecting = true;
+                this.isAuthenticated = false;
                 this.updateUI();
-            }
 
-            console.log("Conectando al servidor GATT...");
-            this.device.addEventListener('gattserverdisconnected', () => this.onDisconnected());
-            
-            // Intento de conexión con espera para estabilizar (CRUCIAL EN MÓVILES)
-            this.server = await this.device.gatt.connect();
-            
-            // Pequeña espera para estabilizar el servidor GATT (evita el error 'Gatt server is disconnected')
-            await new Promise(r => setTimeout(r, 600));
-
-            if (!this.server.connected) {
-                console.log("Reintentando conexión GATT...");
-                this.server = await this.device.gatt.connect();
-            }
-
-            console.log("Obteniendo servicio primario...");
-            const serviceUUID = this.printerModel === 'niimbot' ? this.NIIMBOT_SERVICE : '000018f0-0000-1000-8000-00805f9b34fb';
-            const service = await this.server.getPrimaryService(serviceUUID);
-
-            console.log("Obteniendo característica...");
-            const characteristics = await service.getCharacteristics();
-            this.characteristic = characteristics.find(c => c.properties.write || c.properties.writeWithoutResponse);
-
-            if (!this.characteristic) {
-                throw new Error("No se encontró una característica de escritura en la impresora.");
-            }
-
-            // Iniciar notificaciones para recibir respuestas
-            if (this.characteristic.properties.notify) {
-                try {
-                    await this.characteristic.startNotifications();
-                    this.characteristic.addEventListener('characteristicvaluechanged', (e) => this.handlePrinterResponse(e));
-                } catch (e) {
-                    console.warn("No se pudieron activar notificaciones:", e);
+                // Handshake Niimbot
+                if (this.printerModel === 'niimbot') {
+                    if (!silent) this.updateUI("Autenticando...");
+                    await this.sendNiimbotPacket(0x01, [0x01]);
+                    const authOk = await this.waitUntilAuthenticated(silent ? 3000 : 8000);
+                    if (authOk) this.sendNiimbotPacket(0x06, [0x01]);
                 }
-            }
 
-            this.isConnected = true;
-            this.isReconnecting = false;
-            this.isAuthenticated = false; // Resetear hasta recibir ACK 0x01
-            this.updateUI();
+                if (!silent) app.showAlert("Impresora conectada correctamente", "success");
+                this.startHeartbeat();
+                return true;
 
-            if (this.printerModel === 'niimbot') {
-                console.log("Iniciando Handshake de autenticación (0x01)...");
-                await this.sendNiimbotPacket(0x01, [0x01]);
-
-                const authOk = await this.waitUntilAuthenticated(silent ? 3000 : 8000);
-
-                if (authOk) {
-                    console.log("¡Handshake exitoso! Pidiendo batería...");
-                    this.sendNiimbotPacket(0x06, [0x01]);
+            } catch (error) {
+                console.error(`Error en intento ${attempts}:`, error);
+                
+                // Limpieza para el siguiente intento
+                if (this.server) {
+                    try { this.server.disconnect(); } catch(e){}
+                    this.server = null;
                 }
+                
+                if (attempts >= maxAttempts) {
+                    if (!silent) app.showAlert("Error de conexión: " + error.message, "error");
+                    this.isConnected = false;
+                    this.isReconnecting = false;
+                    this.updateUI();
+                    return false;
+                }
+                
+                // Esperar un poco antes de reintentar
+                await new Promise(r => setTimeout(r, 1000));
             }
-
-            if (!silent) app.showAlert("Impresora conectada correctamente", "success");
-
-            // Iniciar monitoreo de salud de conexión
-            this.startHeartbeat();
-
-            return true;
-        } catch (error) {
-            console.error("Error de conexión Bluetooth:", error);
-            if (!silent) app.showAlert("Error: " + error.message, "error");
-            this.isConnected = false;
-            this.isReconnecting = false;
-            this.updateUI();
-            return false;
         }
+        return false;
     },
 
     onDisconnected() {
@@ -659,7 +667,7 @@ const bluetoothPrinter = {
         this.updateUI();
     },
 
-    updateUI() {
+    updateUI(statusOverride) {
         const statusDot = document.getElementById('printer-status-dot');
         const statusText = document.getElementById('printer-status-text');
         const connectBtn = document.getElementById('printer-connect-btn');
@@ -669,7 +677,11 @@ const bluetoothPrinter = {
             statusDot.style.background = this.isConnected ? '#74c69d' : (this.isReconnecting ? '#ffd166' : '#f28482');
         }
         if (statusText) {
-            statusText.innerText = this.isConnected ? 'Conectado' : (this.isReconnecting ? 'Reconectando...' : 'Desconectado');
+            if (statusOverride) {
+                statusText.innerText = statusOverride;
+            } else {
+                statusText.innerText = this.isConnected ? 'Conectado' : (this.isReconnecting ? 'Reconectando...' : 'Desconectado');
+            }
         }
         if (connectBtn) {
             let modelName = 'Impresora Genérica';
