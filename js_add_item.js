@@ -41,7 +41,7 @@ const addItemModule = {
   },
 
   clearForm() {
-    ['inv-barcode', 'inv-name', 'inv-description', 'inv-stock', 'inv-purchase', 'inv-sale'].forEach(id => {
+    ['inv-barcode', 'inv-name', 'inv-category', 'inv-description', 'inv-stock', 'inv-purchase', 'inv-sale'].forEach(id => {
       const el = document.getElementById(id);
       if (el) el.value = '';
     });
@@ -181,6 +181,7 @@ const addItemModule = {
     const product = dataManager.inventoryCache.find(p => String(p.barcode) === String(barcode));
     if (product) {
       document.getElementById('inv-name').value = product.name;
+      document.getElementById('inv-category').value = product.category || "";
       document.getElementById('inv-description').value = product.description || "";
       document.getElementById('inv-stock').value = product.stock;
       document.getElementById('inv-purchase').value = product.purchasePrice;
@@ -209,12 +210,13 @@ const addItemModule = {
   async saveProduct() {
     let barcode = document.getElementById('inv-barcode').value;
     const name = document.getElementById('inv-name').value;
+    const category = document.getElementById('inv-category').value;
     const description = document.getElementById('inv-description').value;
     const stock = document.getElementById('inv-stock').value;
     const purchasePrice = document.getElementById('inv-purchase').value;
     const salePrice = document.getElementById('inv-sale').value;
 
-    if (!name || !stock) return app.showAlert("El nombre y el stock son obligatorios", "error");
+    if (!name || !category || !stock) return app.showAlert("El nombre, la categoría y el stock son obligatorios", "error");
 
     // Si es creación y no hay barcode, generamos uno único
     if (this.currentMode === 'create' && !barcode) {
@@ -234,6 +236,7 @@ const addItemModule = {
     const productData = {
       barcode,
       name,
+      category,
       description,
       stock,
       purchasePrice,

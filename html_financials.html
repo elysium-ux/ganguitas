@@ -88,10 +88,19 @@
         <h3 style="margin-bottom: 1rem;">Movimientos de Caja</h3>
         <div class="table-container">
             <table style="font-size: 0.8rem;">
-                <thead><tr><th>Fecha</th><th>Tipo</th><th>Monto</th><th>Dif.</th></tr></thead>
+                <thead><tr><th>Fecha</th><th>Tipo</th><th>Monto</th><th>Info/Dif.</th></tr></thead>
                 <tbody id="fin-caja-tbody"></tbody>
             </table>
         </div>
+    </div>
+</div>
+
+<div class="glass-panel" style="margin-top: 2rem; padding: 1.5rem;">
+    <h3 style="margin-bottom: 1.5rem; display: flex; align-items: center; gap: 10px;">
+        <i class="fas fa-cash-register" style="color: var(--primary);"></i> Historial de Cortes (Periodo)
+    </h3>
+    <div id="fin-cortes-container" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 1.5rem;">
+        <!-- Tarjetas de corte se inyectarán aquí -->
     </div>
 </div>
 

@@ -40,24 +40,39 @@ const financialsModule = {
           profitStatus.style.color = "var(--danger)";
       }
 
-      // Tabla de Caja con FECHA FORMATEADA
+      // Tabla de Movimientos Unificada (Caja + Ventas + Gastos)
       const tbody = document.getElementById('fin-caja-tbody');
       if (tbody) {
         tbody.innerHTML = '';
-        d.cajaHistory.forEach(row => {
+        d.cajaHistory.forEach(m => {
+          let typeColor = '#d67eb1'; // Default
+          if (m.type === 'APERTURA') typeColor = '#74c69d';
+          if (m.type === 'VENTA') typeColor = '#4a90e2';
+          if (m.type === 'GASTO') typeColor = '#f28482';
+
           let btnHtml = '';
-          if(row[1] === 'CORTE') {
-               btnHtml = `<button class="btn" style="padding: 2px 8px; font-size: 0.7rem; width: auto;" onclick="financialsModule.viewCorte('${row[0]}', '${row[3]}')"><i class="fas fa-search"></i> Ver</button>`;
+          if(m.type === 'CORTE') {
+               btnHtml = ` <button class="btn" style="padding: 2px 8px; font-size: 0.7rem; width: auto;" onclick="financialsModule.viewCorte('${m.date}', '${m.user}')"><i class="fas fa-search"></i></button>`;
+          }
+
+          // Columna de información o diferencia
+          let infoHtml = m.note || '---';
+          if (m.type === 'CORTE') {
+            const diff = Number(m.diff) || 0;
+            const diffColor = diff < 0 ? 'var(--danger)' : '#74c69d';
+            infoHtml = `<span style="color:${diffColor}; font-weight:bold;">$${diff.toFixed(2)}</span>${btnHtml}`;
           }
           
           tbody.innerHTML += `
             <tr>
-              <td style="font-size:0.75rem;">${app.formatDateTime(row[0])}</td>
-              <td style="font-weight:600; color:${row[1]==='APERTURA'?'#74c69d':'#d67eb1'}">
-                 ${row[1]} ${btnHtml}
+              <td style="font-size:0.7rem; white-space:nowrap;">${app.formatDateTime(m.date).split(', ')[1] || app.formatDateTime(m.date)}</td>
+              <td style="font-weight:600; color:${typeColor}; font-size:0.75rem;">
+                 ${m.type}
               </td>
-              <td>$${Number(row[2]).toFixed(2)}</td>
-              <td style="color:${Number(row[5])<0?'red':'green'}">${row[5]?'$'+Number(row[5]).toFixed(2):'---'}</td>
+              <td style="font-weight:bold;">$${Number(m.amount).toFixed(2)}</td>
+              <td style="font-size:0.7rem; color:var(--text-muted); max-width: 120px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="${m.note || ''}">
+                ${infoHtml}
+              </td>
             </tr>
           `;
         });
@@ -70,6 +85,51 @@ const financialsModule = {
       document.getElementById('fin-sale-cash').innerText = `$${d.salesByMethod.Efectivo.toFixed(2)}`;
       document.getElementById('fin-sale-card').innerText = `$${d.salesByMethod.Tarjeta.toFixed(2)}`;
       document.getElementById('fin-sale-trans').innerText = `$${d.salesByMethod.Transferencia.toFixed(2)}`;
+
+      // Render Tarjetas de Cortes
+      const cortesContainer = document.getElementById('fin-cortes-container');
+      if (cortesContainer) {
+          cortesContainer.innerHTML = '';
+          if (d.cortes.length === 0) {
+              cortesContainer.innerHTML = '<p style="grid-column: 1/-1; text-align: center; color: var(--text-muted); padding: 2rem;">No hay cortes registrados en este periodo.</p>';
+          } else {
+              d.cortes.forEach(c => {
+                  const dateObj = app.formatDateTime(c.date);
+                  const [datePart, timePart] = dateObj.split(' ');
+                  const diffColor = c.difference < 0 ? 'var(--danger)' : '#74c69d';
+                  const diffSign = c.difference >= 0 ? '+' : '';
+
+                  cortesContainer.innerHTML += `
+                    <div class="glass-panel corte-card" onclick="financialsModule.viewCorte('${c.date}', '${c.user}')" style="cursor: pointer; padding: 1.2rem; border: 1px solid rgba(0,0,0,0.05); transition: transform 0.2s;">
+                        <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 0.8rem;">
+                            <div>
+                                <h4 style="margin:0; font-size: 1.1rem; color: #333;">Corte ${datePart}</h4>
+                                <small style="color: var(--text-muted);">${timePart}</small>
+                            </div>
+                            <div style="font-size: 1.3rem; font-weight: 800; color: #1a1a1a;">$${c.totalSales.toFixed(2)}</div>
+                        </div>
+
+                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; font-size: 0.85rem; margin-bottom: 1rem;">
+                            <div>Fondo: <strong>$${c.initialAmount.toFixed(2)}</strong></div>
+                            <div style="text-align: right;">Ef. Real: <strong>$${c.finalAmount.toFixed(2)}</strong></div>
+                            <div>Ef. Esperado: <strong>$${c.expectedCash.toFixed(2)}</strong></div>
+                            <div style="text-align: right;">
+                                <span style="background: ${c.difference < 0 ? 'rgba(242,132,130,0.1)' : 'rgba(116,198,157,0.1)'}; padding: 2px 8px; border-radius: 12px; font-weight: bold; color: ${diffColor};">
+                                    Dif: ${diffSign}$${c.difference.toFixed(2)}
+                                </span>
+                            </div>
+                        </div>
+
+                        <div style="display: flex; gap: 15px; font-size: 0.75rem; color: var(--text-muted); border-top: 1px solid #f5f5f5; pt: 8px;">
+                            <span><i class="fas fa-university" style="color: #4a90e2;"></i> $${c.salesTrans.toFixed(2)}</span>
+                            <span><i class="fas fa-credit-card" style="color: #4a90e2;"></i> $${c.salesCard.toFixed(2)}</span>
+                            <span><i class="fas fa-arrow-down" style="color: var(--danger);"></i> Gastos: $${c.totalExpenses.toFixed(2)}</span>
+                        </div>
+                    </div>
+                  `;
+              });
+          }
+      }
   },
 
   async viewCorte(corteDateStr, userId) {

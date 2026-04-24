@@ -1,7 +1,7 @@
 # Google Apps Script Files (The "Life" of the system)
 *.gs
 
-# Configuración Sensible (Claves y URLs)
+# Configuraci√≥n Sensible (Claves y URLs)
 js_config.js
 
 # Archivos de entorno y logs
@@ -15,3 +15,4 @@ Thumbs.db
 brain/
 /tmp/
 node_modules/
+j s _ c o n f i g . j s 

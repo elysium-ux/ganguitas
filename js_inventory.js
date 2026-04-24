@@ -47,7 +47,7 @@ const inventoryModule = {
   },
 
   renderImageCarousel(images, barcode) {
-    if (!images || images.length === 0) return '<div class="mini-carousel" style="display:flex; align-items:center; justify-content:center; background:#eee;"><i class="fas fa-image" style="color:#ccc;"></i></div>';
+    if (!images || images.length === 0 || !images[0] || !images[0].url) return '<div class="mini-carousel" style="display:flex; align-items:center; justify-content:center; background:#eee;"><i class="fas fa-image" style="color:#ccc;"></i></div>';
     
     return `
       <div class="mini-carousel" id="carousel-${barcode}" onclick="event.stopPropagation(); app.openImageViewer(${JSON.stringify(images).replace(/"/g, '&quot;')})">
@@ -72,6 +72,7 @@ const inventoryModule = {
           <td>${this.renderImageCarousel(p.images, p.barcode)}</td>
           <td>${p.barcode}</td>
           <td><strong>${p.name}</strong></td>
+          <td><span style="font-size: 0.75rem; background: rgba(214,126,177,0.1); padding: 2px 8px; border-radius: 10px; color: #d67eb1;">${p.category || '---'}</span></td>
           <td style="${statusClass}">${p.stock}</td>
           <td>$${Number(p.salePrice).toFixed(2)}</td>
           <td>${p.stock > 0 ? '✅ Activo' : '❌ Agotado'}</td>
